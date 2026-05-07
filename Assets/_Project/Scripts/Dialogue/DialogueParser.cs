@@ -113,7 +113,8 @@ public static class DialogueParser
                 optionHeader.BoxText,
                 optionHeader.SelectedText,
                 consequenceNode,
-                optionHeader.TargetHubName));
+                optionHeader.TargetHubName,
+                optionHeader.IsOnce));
         }
 
         if (choices.Count == 0)
@@ -250,7 +251,9 @@ public static class DialogueParser
         if (separatorIndex < 0)
         {
             string linkChoiceText = text.Trim();
-            if (!TryExtractHubTarget(ref linkChoiceText, out string linkTargetHubName))
+            ExtractOptionTags(ref linkChoiceText, out string linkTargetHubName, out bool linkIsOnce);
+
+            if (string.IsNullOrWhiteSpace(linkTargetHubName))
             {
                 return false;
             }
@@ -260,13 +263,13 @@ public static class DialogueParser
                 throw new DialogueParseException(lineNumber, "Linked choice needs button text before the [back/go Hub] target.");
             }
 
-            optionHeader = new DialogueOptionHeader(lineNumber, string.Empty, linkChoiceText, string.Empty, linkTargetHubName);
+            optionHeader = new DialogueOptionHeader(lineNumber, string.Empty, linkChoiceText, string.Empty, linkTargetHubName, linkIsOnce);
             return true;
         }
 
         string speakerName = text.Substring(0, separatorIndex).Trim();
         string optionText = text.Substring(separatorIndex + 1).Trim();
-        TryExtractHubTarget(ref optionText, out string targetHubName);
+        ExtractOptionTags(ref optionText, out string targetHubName, out bool isOnce);
 
         int closeIndex = optionText.LastIndexOf(')');
         int openIndex = optionText.LastIndexOf('(');
@@ -286,13 +289,43 @@ public static class DialogueParser
             throw new DialogueParseException(lineNumber, "Choice options need speaker, box text, and selected text.");
         }
 
-        optionHeader = new DialogueOptionHeader(lineNumber, speakerName, boxText, selectedText, targetHubName);
+        optionHeader = new DialogueOptionHeader(lineNumber, speakerName, boxText, selectedText, targetHubName, isOnce);
         return true;
     }
 
-    private static bool TryExtractHubTarget(ref string text, out string targetHubName)
+    private static void ExtractOptionTags(ref string text, out string targetHubName, out bool isOnce)
     {
         targetHubName = null;
+        isOnce = false;
+
+        while (TryExtractLastTag(ref text, out string tagText))
+        {
+            if (tagText.Equals("once", StringComparison.OrdinalIgnoreCase))
+            {
+                isOnce = true;
+                continue;
+            }
+
+            if (TryReadHubTarget(tagText, "back ", out string backTargetHubName))
+            {
+                targetHubName = backTargetHubName;
+                continue;
+            }
+
+            if (TryReadHubTarget(tagText, "go ", out string goTargetHubName))
+            {
+                targetHubName = goTargetHubName;
+                continue;
+            }
+
+            text = $"{text} [{tagText}]".Trim();
+            break;
+        }
+    }
+
+    private static bool TryExtractLastTag(ref string text, out string tagText)
+    {
+        tagText = null;
         string trimmedText = text.Trim();
 
         if (!trimmedText.EndsWith("]", StringComparison.Ordinal))
@@ -308,17 +341,9 @@ public static class DialogueParser
             return false;
         }
 
-        string commandText = trimmedText.Substring(openIndex + 1, trimmedText.Length - openIndex - 2).Trim();
-
-        if (TryReadHubTarget(commandText, "back ", out targetHubName) ||
-            TryReadHubTarget(commandText, "go ", out targetHubName))
-        {
-            text = trimmedText.Substring(0, openIndex).Trim();
-            return true;
-        }
-
-        text = trimmedText;
-        return false;
+        tagText = trimmedText.Substring(openIndex + 1, trimmedText.Length - openIndex - 2).Trim();
+        text = trimmedText.Substring(0, openIndex).Trim();
+        return !string.IsNullOrWhiteSpace(tagText);
     }
 
     private static bool TryReadHubTarget(string commandText, string prefix, out string targetHubName)
@@ -355,13 +380,20 @@ public static class DialogueParser
 
     private sealed class DialogueOptionHeader
     {
-        public DialogueOptionHeader(int lineNumber, string speakerName, string boxText, string selectedText, string targetHubName = null)
+        public DialogueOptionHeader(
+            int lineNumber,
+            string speakerName,
+            string boxText,
+            string selectedText,
+            string targetHubName = null,
+            bool isOnce = false)
         {
             LineNumber = lineNumber;
             SpeakerName = speakerName;
             BoxText = boxText;
             SelectedText = selectedText;
             TargetHubName = targetHubName;
+            IsOnce = isOnce;
         }
 
         public int LineNumber { get; }
@@ -369,5 +401,6 @@ public static class DialogueParser
         public string BoxText { get; }
         public string SelectedText { get; }
         public string TargetHubName { get; }
+        public bool IsOnce { get; }
     }
 }

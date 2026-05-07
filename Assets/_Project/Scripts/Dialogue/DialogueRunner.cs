@@ -20,6 +20,7 @@ public sealed class DialogueRunner : MonoBehaviour
     private WaitForSeconds cachedLineDelay;
     private float cachedLineDelaySeconds = -1f;
     private readonly Dictionary<string, DialogueHub> hubsByName = new Dictionary<string, DialogueHub>();
+    private readonly HashSet<int> usedOnceChoiceLineNumbers = new HashSet<int>();
     private readonly Dictionary<string, SpriteRenderer> characterRenderers = new Dictionary<string, SpriteRenderer>();
 
     private void Start()
@@ -44,6 +45,7 @@ public sealed class DialogueRunner : MonoBehaviour
         }
 
         DialogueGraph graph = DialogueParser.Parse(dialogueText);
+        usedOnceChoiceLineNumbers.Clear();
         BuildHubLookup(graph);
 
         if (dialogueUI == null)
@@ -98,23 +100,24 @@ public sealed class DialogueRunner : MonoBehaviour
     private IEnumerator PlayHub(DialogueHub hub)
     {
         Debug.Log($"[Hub] {hub.HubName}");
+        List<DialogueChoice> availableChoices = GetAvailableChoices(hub);
 
-        for (int i = 0; i < hub.Choices.Count; i++)
+        for (int i = 0; i < availableChoices.Count; i++)
         {
-            DialogueChoice choice = hub.Choices[i];
+            DialogueChoice choice = availableChoices[i];
             Debug.Log($"[Choice {i + 1}] {choice.BoxText}");
         }
 
-        if (hub.Choices.Count == 0)
+        if (availableChoices.Count == 0)
         {
             yield break;
         }
 
-        dialogueUI.ShowChoices(hub.Choices);
+        dialogueUI.ShowChoices(availableChoices);
 
         while (dialogueUI.SelectedChoiceIndex < 0)
         {
-            int keyboardChoiceIndex = GetPressedChoiceIndex(hub.Choices.Count);
+            int keyboardChoiceIndex = GetPressedChoiceIndex(availableChoices.Count);
             if (keyboardChoiceIndex >= 0)
             {
                 dialogueUI.SelectChoice(keyboardChoiceIndex);
@@ -123,7 +126,12 @@ public sealed class DialogueRunner : MonoBehaviour
             yield return null;
         }
 
-        DialogueChoice selectedChoice = hub.Choices[dialogueUI.SelectedChoiceIndex];
+        DialogueChoice selectedChoice = availableChoices[dialogueUI.SelectedChoiceIndex];
+        if (selectedChoice.IsOnce)
+        {
+            usedOnceChoiceLineNumbers.Add(selectedChoice.LineNumber);
+        }
+
         dialogueUI.HideChoices();
 
         if (selectedChoice.HasHubTarget)
@@ -146,6 +154,24 @@ public sealed class DialogueRunner : MonoBehaviour
             typewriterCharactersPerSecond,
             WasNextPressed);
         yield return PlayNode(selectedChoice.ConsequenceNode);
+    }
+
+    private List<DialogueChoice> GetAvailableChoices(DialogueHub hub)
+    {
+        List<DialogueChoice> availableChoices = new List<DialogueChoice>();
+
+        for (int i = 0; i < hub.Choices.Count; i++)
+        {
+            DialogueChoice choice = hub.Choices[i];
+            if (choice.IsOnce && usedOnceChoiceLineNumbers.Contains(choice.LineNumber))
+            {
+                continue;
+            }
+
+            availableChoices.Add(choice);
+        }
+
+        return availableChoices;
     }
 
     private void BuildHubLookup(DialogueGraph graph)

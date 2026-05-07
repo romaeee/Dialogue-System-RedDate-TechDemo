@@ -6,7 +6,7 @@ Player: I had no choice.
 Anna: You always say that.
 
 Hub A
-Player: Sorry. (Sorry.)
+Player: Sorry. (Sorry.) [once]
 	Anna: Hm. Fine.
 	Hub A1
 	Player: Option 1. (How are you!)

@@ -10,7 +10,8 @@ public sealed class DialogueChoice
         string boxText,
         string selectedText,
         DialogueNode consequenceNode,
-        string targetHubName = null)
+        string targetHubName = null,
+        bool isOnce = false)
     {
         LineNumber = lineNumber;
         SpeakerName = speakerName;
@@ -18,6 +19,7 @@ public sealed class DialogueChoice
         SelectedText = selectedText;
         this.consequenceNode = consequenceNode;
         TargetHubName = targetHubName;
+        IsOnce = isOnce;
     }
 
     public int LineNumber { get; }
@@ -26,5 +28,6 @@ public sealed class DialogueChoice
     public string SelectedText { get; }
     public DialogueNode ConsequenceNode => consequenceNode;
     public string TargetHubName { get; }
+    public bool IsOnce { get; }
     public bool HasHubTarget => !string.IsNullOrWhiteSpace(TargetHubName);
 }
