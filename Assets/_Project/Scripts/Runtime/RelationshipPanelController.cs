@@ -106,7 +106,7 @@ public sealed class RelationshipPanelController : MonoBehaviour
         if (panelImage != null)
         {
             panelImage.enabled = true;
-            panelImage.color = new Color(0f, 0f, 0f, 0.82f);
+            panelImage.color = new Color(0f, 0f, 0f, 0f);
         }
 
         GameObject contentObject = new GameObject("Relationship Content");

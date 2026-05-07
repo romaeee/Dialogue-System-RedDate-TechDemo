@@ -27,7 +27,9 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
     private float cachedLineDelaySeconds = -1f;
     private DialogueGraph currentGraph;
     private string currentNodeName = "Start";
+    private string currentHubName;
     private int currentElementIndex;
+    private DialogueLine retainedLineBeforeChoices;
     private string currentBackgroundName;
     private readonly Dictionary<string, DialogueHub> hubsByName = new Dictionary<string, DialogueHub>();
     private readonly Dictionary<string, DialogueNode> nodesByName = new Dictionary<string, DialogueNode>();
@@ -87,6 +89,10 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         {
             nodeName = currentNodeName,
             elementIndex = currentElementIndex,
+            activeHubName = currentHubName,
+            hasRetainedLine = retainedLineBeforeChoices != null,
+            retainedLineSpeakerName = retainedLineBeforeChoices != null ? retainedLineBeforeChoices.SpeakerName : null,
+            retainedLineText = retainedLineBeforeChoices != null ? retainedLineBeforeChoices.Text : null,
             currentBackgroundName = currentBackgroundName,
             visibleCharacterNames = new List<string>(visibleCharacterNames),
             usedOnceChoiceLineNumbers = new List<int>(usedOnceChoiceLineNumbers)
@@ -133,7 +139,16 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
 
         EnsureDialogueUI();
 
-        playRoutine = StartCoroutine(PlayNode(node, startIndex));
+        if (state.hasRetainedLine)
+        {
+            retainedLineBeforeChoices = new DialogueLine(
+                0,
+                state.retainedLineSpeakerName,
+                state.retainedLineText);
+            dialogueUI.ShowStaticLine(retainedLineBeforeChoices);
+        }
+
+        playRoutine = StartCoroutine(PlayRestoredPosition(node, startIndex, state.activeHubName));
     }
 
     private async System.Threading.Tasks.Task SaveAsync()
@@ -260,6 +275,8 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
     private void ResetRuntimeState()
     {
         currentBackgroundName = null;
+        currentHubName = null;
+        retainedLineBeforeChoices = null;
         visibleCharacterNames.Clear();
         usedOnceChoiceLineNumbers.Clear();
 
@@ -303,6 +320,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         {
             currentNodeName = node.NodeName;
             currentElementIndex = i;
+            currentHubName = null;
             DialogueElement element = node.Elements[i];
 
             if (element is DialogueLine line)
@@ -311,12 +329,14 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
                 ApplyRelationshipChanges(line.RelationshipChanges);
                 bool hideAfterAdvance = !(i + 1 < node.Elements.Count && node.Elements[i + 1] is DialogueHub);
                 yield return dialogueUI.ShowLine(line, typewriterCharactersPerSecond, WasNextPressed, hideAfterAdvance);
+                retainedLineBeforeChoices = hideAfterAdvance ? null : line;
                 continue;
             }
 
             if (element is DialogueCommand command)
             {
                 HandleCommand(command);
+                retainedLineBeforeChoices = null;
                 yield return WaitForLineDelay();
                 continue;
             }
@@ -330,6 +350,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
 
     private IEnumerator PlayHub(DialogueHub hub)
     {
+        currentHubName = hub.HubName;
         Debug.Log($"[Hub] {hub.HubName}");
         List<DialogueChoice> availableChoices = GetAvailableChoices(hub);
 
@@ -365,6 +386,8 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
 
         ApplyRelationshipChanges(selectedChoice.RelationshipChanges);
         dialogueUI.HideChoices();
+        retainedLineBeforeChoices = null;
+        currentHubName = null;
 
         if (selectedChoice.HasHubTarget)
         {
@@ -385,7 +408,19 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
             new DialogueLine(selectedChoice.LineNumber, selectedChoice.SpeakerName, selectedChoice.SelectedText),
             typewriterCharactersPerSecond,
             WasNextPressed);
+        retainedLineBeforeChoices = null;
         yield return PlayNode(selectedChoice.ConsequenceNode, 0);
+    }
+
+    private IEnumerator PlayRestoredPosition(DialogueNode node, int startIndex, string activeHubName)
+    {
+        if (!string.IsNullOrWhiteSpace(activeHubName) && hubsByName.TryGetValue(activeHubName, out DialogueHub restoredHub))
+        {
+            yield return PlayHub(restoredHub);
+            yield break;
+        }
+
+        yield return PlayNode(node, startIndex);
     }
 
     private void ApplyRelationshipChanges(IReadOnlyList<RelationshipChange> relationshipChanges)

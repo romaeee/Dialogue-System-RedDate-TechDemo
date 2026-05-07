@@ -110,6 +110,18 @@ public sealed class DialogueUI
         }
     }
 
+    public void ShowStaticLine(DialogueLine line)
+    {
+        if (line == null)
+        {
+            return;
+        }
+
+        Text activeText = GetTextForSpeaker(line.SpeakerName);
+        ShowOnlyPanel(activeText);
+        activeText.text = $"{line.SpeakerName}: {line.Text}";
+    }
+
     public void SelectChoice(int choiceIndex)
     {
         selectedChoiceIndex = choiceIndex;
