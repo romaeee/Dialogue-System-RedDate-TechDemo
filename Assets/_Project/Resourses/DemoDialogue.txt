@@ -7,7 +7,7 @@ Anna: You always say that.
 
 Hub A
 Player: Sorry. (Sorry.) [once]
-	Anna: Hm. Fine.
+	Anna: Hm. Fine. [relationship trust Anna +1]
 	Hub A1
 	Player: Option 1. (How are you!)
 		Anna: I'm good!

@@ -114,7 +114,8 @@ public static class DialogueParser
                 optionHeader.SelectedText,
                 consequenceNode,
                 optionHeader.TargetHubName,
-                optionHeader.IsOnce));
+                optionHeader.IsOnce,
+                optionHeader.RelationshipChanges));
         }
 
         if (choices.Count == 0)
@@ -233,13 +234,14 @@ public static class DialogueParser
 
         string speakerName = text.Substring(0, separatorIndex).Trim();
         string dialogueText = text.Substring(separatorIndex + 1).Trim();
+        ExtractTags(ref dialogueText, out _, out _, out List<RelationshipChange> relationshipChanges);
 
         if (string.IsNullOrWhiteSpace(speakerName) || string.IsNullOrWhiteSpace(dialogueText))
         {
             throw new DialogueParseException(lineNumber, "Dialogue lines need both a speaker and text.");
         }
 
-        dialogueLine = new DialogueLine(lineNumber, speakerName, dialogueText);
+        dialogueLine = new DialogueLine(lineNumber, speakerName, dialogueText, relationshipChanges);
         return true;
     }
 
@@ -251,7 +253,7 @@ public static class DialogueParser
         if (separatorIndex < 0)
         {
             string linkChoiceText = text.Trim();
-            ExtractOptionTags(ref linkChoiceText, out string linkTargetHubName, out bool linkIsOnce);
+            ExtractTags(ref linkChoiceText, out string linkTargetHubName, out bool linkIsOnce, out List<RelationshipChange> linkRelationshipChanges);
 
             if (string.IsNullOrWhiteSpace(linkTargetHubName))
             {
@@ -263,13 +265,13 @@ public static class DialogueParser
                 throw new DialogueParseException(lineNumber, "Linked choice needs button text before the [back/go Hub] target.");
             }
 
-            optionHeader = new DialogueOptionHeader(lineNumber, string.Empty, linkChoiceText, string.Empty, linkTargetHubName, linkIsOnce);
+            optionHeader = new DialogueOptionHeader(lineNumber, string.Empty, linkChoiceText, string.Empty, linkTargetHubName, linkIsOnce, linkRelationshipChanges);
             return true;
         }
 
         string speakerName = text.Substring(0, separatorIndex).Trim();
         string optionText = text.Substring(separatorIndex + 1).Trim();
-        ExtractOptionTags(ref optionText, out string targetHubName, out bool isOnce);
+        ExtractTags(ref optionText, out string targetHubName, out bool isOnce, out List<RelationshipChange> relationshipChanges);
 
         int closeIndex = optionText.LastIndexOf(')');
         int openIndex = optionText.LastIndexOf('(');
@@ -289,14 +291,19 @@ public static class DialogueParser
             throw new DialogueParseException(lineNumber, "Choice options need speaker, box text, and selected text.");
         }
 
-        optionHeader = new DialogueOptionHeader(lineNumber, speakerName, boxText, selectedText, targetHubName, isOnce);
+        optionHeader = new DialogueOptionHeader(lineNumber, speakerName, boxText, selectedText, targetHubName, isOnce, relationshipChanges);
         return true;
     }
 
-    private static void ExtractOptionTags(ref string text, out string targetHubName, out bool isOnce)
+    private static void ExtractTags(
+        ref string text,
+        out string targetHubName,
+        out bool isOnce,
+        out List<RelationshipChange> relationshipChanges)
     {
         targetHubName = null;
         isOnce = false;
+        relationshipChanges = new List<RelationshipChange>();
 
         while (TryExtractLastTag(ref text, out string tagText))
         {
@@ -318,9 +325,34 @@ public static class DialogueParser
                 continue;
             }
 
+            if (TryReadRelationshipChange(tagText, out RelationshipChange relationshipChange))
+            {
+                relationshipChanges.Add(relationshipChange);
+                continue;
+            }
+
             text = $"{text} [{tagText}]".Trim();
             break;
         }
+    }
+
+    private static bool TryReadRelationshipChange(string tagText, out RelationshipChange relationshipChange)
+    {
+        relationshipChange = null;
+
+        if (!tagText.StartsWith("relationship ", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string[] parts = tagText.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 4 || !int.TryParse(parts[3], out int delta))
+        {
+            return false;
+        }
+
+        relationshipChange = new RelationshipChange(parts[1], parts[2], delta);
+        return true;
     }
 
     private static bool TryExtractLastTag(ref string text, out string tagText)
@@ -386,7 +418,8 @@ public static class DialogueParser
             string boxText,
             string selectedText,
             string targetHubName = null,
-            bool isOnce = false)
+            bool isOnce = false,
+            List<RelationshipChange> relationshipChanges = null)
         {
             LineNumber = lineNumber;
             SpeakerName = speakerName;
@@ -394,6 +427,7 @@ public static class DialogueParser
             SelectedText = selectedText;
             TargetHubName = targetHubName;
             IsOnce = isOnce;
+            RelationshipChanges = relationshipChanges ?? new List<RelationshipChange>();
         }
 
         public int LineNumber { get; }
@@ -402,5 +436,6 @@ public static class DialogueParser
         public string SelectedText { get; }
         public string TargetHubName { get; }
         public bool IsOnce { get; }
+        public List<RelationshipChange> RelationshipChanges { get; }
     }
 }

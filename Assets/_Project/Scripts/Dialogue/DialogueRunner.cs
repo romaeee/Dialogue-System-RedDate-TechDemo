@@ -7,6 +7,7 @@ using UnityEngine.UI;
 public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
 {
     [SerializeField] private TextAsset dialogueText;
+    [SerializeField] private PlayerController playerController;
     [SerializeField] private CharacterDatabase characterDatabase;
     [SerializeField] private BackgroundDatabase backgroundDatabase;
     [SerializeField] private string saveFileName = "save.json";
@@ -139,7 +140,8 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
     {
         SaveGameData saveData = new SaveGameData
         {
-            dialogue = CaptureState()
+            dialogue = CaptureState(),
+            player = playerController != null ? playerController.CaptureState() : new PlayerSaveData()
         };
 
         await SaveSystem.SaveAsync(saveFileName, saveData);
@@ -215,6 +217,11 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         {
             StopCoroutine(playRoutine);
             playRoutine = null;
+        }
+
+        if (playerController != null)
+        {
+            playerController.RestoreState(saveData.player);
         }
 
         RestoreState(saveData.dialogue);
@@ -301,6 +308,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
             if (element is DialogueLine line)
             {
                 Debug.Log($"{line.SpeakerName}: {line.Text}");
+                ApplyRelationshipChanges(line.RelationshipChanges);
                 bool hideAfterAdvance = !(i + 1 < node.Elements.Count && node.Elements[i + 1] is DialogueHub);
                 yield return dialogueUI.ShowLine(line, typewriterCharactersPerSecond, WasNextPressed, hideAfterAdvance);
                 continue;
@@ -355,6 +363,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
             usedOnceChoiceLineNumbers.Add(selectedChoice.LineNumber);
         }
 
+        ApplyRelationshipChanges(selectedChoice.RelationshipChanges);
         dialogueUI.HideChoices();
 
         if (selectedChoice.HasHubTarget)
@@ -377,6 +386,25 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
             typewriterCharactersPerSecond,
             WasNextPressed);
         yield return PlayNode(selectedChoice.ConsequenceNode, 0);
+    }
+
+    private void ApplyRelationshipChanges(IReadOnlyList<RelationshipChange> relationshipChanges)
+    {
+        if (relationshipChanges == null || relationshipChanges.Count == 0)
+        {
+            return;
+        }
+
+        if (playerController == null)
+        {
+            Debug.LogWarning("DialogueRunner has relationship changes, but PlayerController is not assigned.");
+            return;
+        }
+
+        for (int i = 0; i < relationshipChanges.Count; i++)
+        {
+            playerController.ApplyRelationshipChange(relationshipChanges[i]);
+        }
     }
 
     private List<DialogueChoice> GetAvailableChoices(DialogueHub hub)

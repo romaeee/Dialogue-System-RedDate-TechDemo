@@ -3,6 +3,7 @@ using System.Collections.Generic;
 public sealed class DialogueChoice
 {
     private readonly DialogueNode consequenceNode;
+    private readonly List<RelationshipChange> relationshipChanges;
 
     public DialogueChoice(
         int lineNumber,
@@ -11,7 +12,8 @@ public sealed class DialogueChoice
         string selectedText,
         DialogueNode consequenceNode,
         string targetHubName = null,
-        bool isOnce = false)
+        bool isOnce = false,
+        List<RelationshipChange> relationshipChanges = null)
     {
         LineNumber = lineNumber;
         SpeakerName = speakerName;
@@ -20,6 +22,7 @@ public sealed class DialogueChoice
         this.consequenceNode = consequenceNode;
         TargetHubName = targetHubName;
         IsOnce = isOnce;
+        this.relationshipChanges = relationshipChanges ?? new List<RelationshipChange>();
     }
 
     public int LineNumber { get; }
@@ -30,4 +33,5 @@ public sealed class DialogueChoice
     public string TargetHubName { get; }
     public bool IsOnce { get; }
     public bool HasHubTarget => !string.IsNullOrWhiteSpace(TargetHubName);
+    public IReadOnlyList<RelationshipChange> RelationshipChanges => relationshipChanges;
 }
