@@ -19,4 +19,12 @@ Player: *Leave.* (Goodbye.)
 
 Narrator: Time is up!
 hideCharacter: Anna
+
+showCharacter: May
+May: Hello!
+Player: Hi! How are you?
+May: I'm okay.
+
+hideCharacter: May
+
 hideBackground: Room

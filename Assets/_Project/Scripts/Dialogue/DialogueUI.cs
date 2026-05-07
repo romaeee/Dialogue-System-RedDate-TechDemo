@@ -122,6 +122,11 @@ public sealed class DialogueUI
         HideAllPanels();
     }
 
+    public void Hide()
+    {
+        HideAll();
+    }
+
     private static IEnumerator TypeLine(Text targetText, string fullText, float charactersPerSecond, Func<bool> wasNextPressed)
     {
         float secondsPerCharacter = 1f / charactersPerSecond;

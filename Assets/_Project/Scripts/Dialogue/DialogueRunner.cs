@@ -2,12 +2,17 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
-public sealed class DialogueRunner : MonoBehaviour
+public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
 {
     [SerializeField] private TextAsset dialogueText;
     [SerializeField] private CharacterDatabase characterDatabase;
     [SerializeField] private BackgroundDatabase backgroundDatabase;
+    [SerializeField] private string saveFileName = "save.json";
+    [SerializeField] private Button saveButton;
+    [SerializeField] private Button loadButton;
+    [SerializeField] private Button restoreButton;
     [SerializeField] private bool playOnStart = true;
     [SerializeField] private float lineDelaySeconds = 1f;
     [SerializeField] private float typewriterCharactersPerSecond = 45f;
@@ -19,15 +24,41 @@ public sealed class DialogueRunner : MonoBehaviour
     private DialogueUI dialogueUI;
     private WaitForSeconds cachedLineDelay;
     private float cachedLineDelaySeconds = -1f;
+    private DialogueGraph currentGraph;
+    private string currentNodeName = "Start";
+    private int currentElementIndex;
+    private string currentBackgroundName;
     private readonly Dictionary<string, DialogueHub> hubsByName = new Dictionary<string, DialogueHub>();
+    private readonly Dictionary<string, DialogueNode> nodesByName = new Dictionary<string, DialogueNode>();
     private readonly HashSet<int> usedOnceChoiceLineNumbers = new HashSet<int>();
+    private readonly HashSet<string> visibleCharacterNames = new HashSet<string>();
     private readonly Dictionary<string, SpriteRenderer> characterRenderers = new Dictionary<string, SpriteRenderer>();
 
     private void Start()
     {
+        BindSceneButtons();
+
         if (playOnStart)
         {
             Play();
+        }
+    }
+
+    private void OnDestroy()
+    {
+        if (saveButton != null)
+        {
+            saveButton.onClick.RemoveListener(OnSaveButtonClicked);
+        }
+
+        if (loadButton != null)
+        {
+            loadButton.onClick.RemoveListener(OnLoadButtonClicked);
+        }
+
+        if (restoreButton != null)
+        {
+            restoreButton.onClick.RemoveListener(OnRestoreButtonClicked);
         }
     }
 
@@ -44,16 +75,204 @@ public sealed class DialogueRunner : MonoBehaviour
             StopCoroutine(playRoutine);
         }
 
-        DialogueGraph graph = DialogueParser.Parse(dialogueText);
-        usedOnceChoiceLineNumbers.Clear();
-        BuildHubLookup(graph);
+        DialogueGraph graph = BuildGraph();
+        ResetRuntimeState();
+        StartGraph(graph);
+    }
 
-        if (dialogueUI == null)
+    public DialogueSaveData CaptureState()
+    {
+        DialogueSaveData state = new DialogueSaveData
         {
-            dialogueUI = new DialogueUI(transform);
+            nodeName = currentNodeName,
+            elementIndex = currentElementIndex,
+            currentBackgroundName = currentBackgroundName,
+            visibleCharacterNames = new List<string>(visibleCharacterNames),
+            usedOnceChoiceLineNumbers = new List<int>(usedOnceChoiceLineNumbers)
+        };
+
+        return state;
+    }
+
+    public void RestoreState(DialogueSaveData state)
+    {
+        if (state == null)
+        {
+            Debug.LogWarning("Cannot restore null dialogue save data.");
+            return;
         }
 
+        DialogueGraph graph = BuildGraph();
+        ResetRuntimeState();
+
+        for (int i = 0; i < state.usedOnceChoiceLineNumbers.Count; i++)
+        {
+            usedOnceChoiceLineNumbers.Add(state.usedOnceChoiceLineNumbers[i]);
+        }
+
+        if (!string.IsNullOrWhiteSpace(state.currentBackgroundName))
+        {
+            ShowBackground(state.currentBackgroundName);
+        }
+
+        for (int i = 0; i < state.visibleCharacterNames.Count; i++)
+        {
+            ShowCharacter(state.visibleCharacterNames[i]);
+        }
+
+        if (!nodesByName.TryGetValue(state.nodeName, out DialogueNode node))
+        {
+            Debug.LogWarning($"Saved dialogue node \"{state.nodeName}\" was not found. Loading from start.");
+            node = graph.StartNode;
+        }
+
+        int startIndex = Mathf.Clamp(state.elementIndex, 0, Mathf.Max(0, node.Elements.Count - 1));
+        currentNodeName = node.NodeName;
+        currentElementIndex = startIndex;
+
+        EnsureDialogueUI();
+
+        playRoutine = StartCoroutine(PlayNode(node, startIndex));
+    }
+
+    private async System.Threading.Tasks.Task SaveAsync()
+    {
+        SaveGameData saveData = new SaveGameData
+        {
+            dialogue = CaptureState()
+        };
+
+        await SaveSystem.SaveAsync(saveFileName, saveData);
+    }
+
+    private async void OnSaveButtonClicked()
+    {
+        await SaveAsync();
+    }
+
+    private async void OnLoadButtonClicked()
+    {
+        await LoadAsync();
+    }
+
+    private async void OnRestoreButtonClicked()
+    {
+        await RestoreSaveAsync();
+    }
+
+    private void EnsureDialogueUI()
+    {
+        if (dialogueUI != null)
+        {
+            return;
+        }
+
+        dialogueUI = new DialogueUI(transform);
+    }
+
+    private void BindSceneButtons()
+    {
+        if (saveButton != null)
+        {
+            saveButton.onClick.RemoveListener(OnSaveButtonClicked);
+            saveButton.onClick.AddListener(OnSaveButtonClicked);
+        }
+        else
+        {
+            Debug.LogWarning("DialogueRunner save button is not assigned.");
+        }
+
+        if (loadButton != null)
+        {
+            loadButton.onClick.RemoveListener(OnLoadButtonClicked);
+            loadButton.onClick.AddListener(OnLoadButtonClicked);
+        }
+        else
+        {
+            Debug.LogWarning("DialogueRunner load button is not assigned.");
+        }
+
+        if (restoreButton != null)
+        {
+            restoreButton.onClick.RemoveListener(OnRestoreButtonClicked);
+            restoreButton.onClick.AddListener(OnRestoreButtonClicked);
+        }
+        else
+        {
+            Debug.LogWarning("DialogueRunner restore button is not assigned.");
+        }
+    }
+
+    private async System.Threading.Tasks.Task LoadAsync()
+    {
+        SaveGameData saveData = await SaveSystem.LoadAsync(saveFileName);
+        if (saveData == null)
+        {
+            return;
+        }
+
+        if (playRoutine != null)
+        {
+            StopCoroutine(playRoutine);
+            playRoutine = null;
+        }
+
+        RestoreState(saveData.dialogue);
+    }
+
+    private async System.Threading.Tasks.Task RestoreSaveAsync()
+    {
+        if (playRoutine != null)
+        {
+            StopCoroutine(playRoutine);
+            playRoutine = null;
+        }
+
+        await SaveSystem.DeleteAsync(saveFileName);
+        Play();
+    }
+
+    private DialogueGraph BuildGraph()
+    {
+        currentGraph = DialogueParser.Parse(dialogueText);
+        BuildGraphLookup(currentGraph);
+        return currentGraph;
+    }
+
+    private void StartGraph(DialogueGraph graph)
+    {
+        usedOnceChoiceLineNumbers.Clear();
+        currentNodeName = graph.StartNode != null ? graph.StartNode.NodeName : "Start";
+        currentElementIndex = 0;
+
+        EnsureDialogueUI();
+
         playRoutine = StartCoroutine(PlayGraph(graph));
+    }
+
+    private void ResetRuntimeState()
+    {
+        currentBackgroundName = null;
+        visibleCharacterNames.Clear();
+        usedOnceChoiceLineNumbers.Clear();
+
+        if (backgroundRenderer != null)
+        {
+            backgroundRenderer.enabled = false;
+        }
+
+        foreach (SpriteRenderer renderer in characterRenderers.Values)
+        {
+            if (renderer != null)
+            {
+                renderer.enabled = false;
+            }
+        }
+
+        if (dialogueUI != null)
+        {
+            dialogueUI.Hide();
+        }
     }
 
     private IEnumerator PlayGraph(DialogueGraph graph)
@@ -64,15 +283,19 @@ public sealed class DialogueRunner : MonoBehaviour
         }
 
         Debug.Log("[Dialogue] Start");
-        yield return PlayNode(graph.StartNode);
+        yield return PlayNode(graph.StartNode, 0);
         Debug.Log("[Dialogue] End");
         playRoutine = null;
     }
 
-    private IEnumerator PlayNode(DialogueNode node)
+    private IEnumerator PlayNode(DialogueNode node, int startIndex)
     {
-        for (int i = 0; i < node.Elements.Count; i++)
+        currentNodeName = node.NodeName;
+
+        for (int i = startIndex; i < node.Elements.Count; i++)
         {
+            currentNodeName = node.NodeName;
+            currentElementIndex = i;
             DialogueElement element = node.Elements[i];
 
             if (element is DialogueLine line)
@@ -153,7 +376,7 @@ public sealed class DialogueRunner : MonoBehaviour
             new DialogueLine(selectedChoice.LineNumber, selectedChoice.SpeakerName, selectedChoice.SelectedText),
             typewriterCharactersPerSecond,
             WasNextPressed);
-        yield return PlayNode(selectedChoice.ConsequenceNode);
+        yield return PlayNode(selectedChoice.ConsequenceNode, 0);
     }
 
     private List<DialogueChoice> GetAvailableChoices(DialogueHub hub)
@@ -174,13 +397,16 @@ public sealed class DialogueRunner : MonoBehaviour
         return availableChoices;
     }
 
-    private void BuildHubLookup(DialogueGraph graph)
+    private void BuildGraphLookup(DialogueGraph graph)
     {
         hubsByName.Clear();
+        nodesByName.Clear();
 
         for (int i = 0; i < graph.Nodes.Count; i++)
         {
             DialogueNode node = graph.Nodes[i];
+            nodesByName[node.NodeName] = node;
+
             for (int j = 0; j < node.Elements.Count; j++)
             {
                 if (node.Elements[j] is DialogueHub hub)
@@ -270,6 +496,7 @@ public sealed class DialogueRunner : MonoBehaviour
         SpriteRenderer renderer = GetOrCreateBackgroundRenderer();
         renderer.sprite = background.Image;
         renderer.enabled = true;
+        currentBackgroundName = backgroundName;
         FitBackgroundToCamera(renderer);
         Debug.Log($"[Command] Show background: {backgroundName}");
     }
@@ -279,6 +506,11 @@ public sealed class DialogueRunner : MonoBehaviour
         if (backgroundRenderer != null)
         {
             backgroundRenderer.enabled = false;
+        }
+
+        if (currentBackgroundName == backgroundName)
+        {
+            currentBackgroundName = null;
         }
 
         Debug.Log($"[Command] Hide background: {backgroundName}");
@@ -302,6 +534,7 @@ public sealed class DialogueRunner : MonoBehaviour
         SpriteRenderer renderer = GetOrCreateCharacterRenderer(characterName);
         renderer.sprite = character.Image;
         renderer.enabled = true;
+        visibleCharacterNames.Add(characterName);
         PlaceCharacterAtBottomCenter(renderer);
         Debug.Log($"[Command] Show character: {characterName}");
     }
@@ -313,6 +546,7 @@ public sealed class DialogueRunner : MonoBehaviour
             renderer.enabled = false;
         }
 
+        visibleCharacterNames.Remove(characterName);
         Debug.Log($"[Command] Hide character: {characterName}");
     }
 
