@@ -1,0 +1,22 @@
+showBackground: Room
+showCharacter: Anna
+
+Anna: You're late.
+Player: I had no choice.
+Anna: You always say that.
+
+Hub A
+Player: Sorry. (Sorry.)
+	Player: Sorry.
+	Anna: Hm. Fine.
+	Hub A1
+	Player: Option 1. (How are you!)
+		Anna: I'm good!
+	Player: Option 2. (Sorry, again!)
+		Anna: It's no problem.
+Player: *Leave.* (Goodbye.)
+	Anna: blah blah.
+
+Narrator: Time is up!
+hideCharacter: Anna
+hideBackground: Room
