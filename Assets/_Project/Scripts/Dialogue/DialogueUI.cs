@@ -39,17 +39,17 @@ public sealed class DialogueUI
         rootObject.AddComponent<GraphicRaycaster>();
 
         Font font = GetBuiltinFont();
-        leftPanel = CreateDialoguePanel("Player Phrase", rootObject.transform, new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(0f, 0f), new Vector2(48f, 72f), out leftText, font);
-        rightPanel = CreateDialoguePanel("Character Phrase", rootObject.transform, new Vector2(1f, 0.55f), new Vector2(1f, 0.55f), new Vector2(1f, 0.5f), new Vector2(-48f, 0f), out rightText, font);
+        leftPanel = CreateDialoguePanel("Character Phrase", rootObject.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(48f, 0f), out leftText, font);
+        rightPanel = CreateDialoguePanel("Player Phrase", rootObject.transform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-48f, 0f), out rightText, font);
         centerPanel = CreateDialoguePanel("Narrator Phrase", rootObject.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 72f), out centerText, font);
 
         GameObject choicesObject = new GameObject("Choices");
         choicesObject.transform.SetParent(rootObject.transform, false);
         choicesRoot = choicesObject.AddComponent<RectTransform>();
-        choicesRoot.anchorMin = new Vector2(0f, 0.35f);
-        choicesRoot.anchorMax = new Vector2(0f, 0.35f);
-        choicesRoot.pivot = new Vector2(0f, 0.5f);
-        choicesRoot.anchoredPosition = new Vector2(48f, 0f);
+        choicesRoot.anchorMin = new Vector2(1f, 0.35f);
+        choicesRoot.anchorMax = new Vector2(1f, 0.35f);
+        choicesRoot.pivot = new Vector2(1f, 0.5f);
+        choicesRoot.anchoredPosition = new Vector2(-48f, 0f);
         choicesRoot.sizeDelta = new Vector2(430f, 460f);
 
         VerticalLayoutGroup layoutGroup = choicesObject.AddComponent<VerticalLayoutGroup>();
@@ -64,7 +64,11 @@ public sealed class DialogueUI
 
     public int SelectedChoiceIndex => selectedChoiceIndex;
 
-    public IEnumerator ShowLine(DialogueLine line, float charactersPerSecond, Func<bool> wasNextPressed)
+    public IEnumerator ShowLine(
+        DialogueLine line,
+        float charactersPerSecond,
+        Func<bool> wasNextPressed,
+        bool hideAfterAdvance = true)
     {
         HideChoices();
 
@@ -72,18 +76,28 @@ public sealed class DialogueUI
         ShowOnlyPanel(activeText);
 
         string fullText = $"{line.SpeakerName}: {line.Text}";
-        yield return TypeText(activeText, fullText, charactersPerSecond, wasNextPressed);
+        activeText.text = string.Empty;
 
-        while (!wasNextPressed())
+        if (charactersPerSecond <= 0f)
         {
-            yield return null;
+            activeText.text = fullText;
+        }
+        else
+        {
+            yield return TypeLine(activeText, fullText, charactersPerSecond, wasNextPressed);
+        }
+
+        yield return WaitForNextPress(wasNextPressed);
+
+        if (hideAfterAdvance)
+        {
+            HideAllPanels();
         }
     }
 
     public void ShowChoices(IReadOnlyList<DialogueChoice> choices)
     {
         selectedChoiceIndex = -1;
-        HideAllPanels();
         ClearChoices();
         choicesRoot.gameObject.SetActive(true);
 
@@ -105,18 +119,11 @@ public sealed class DialogueUI
     {
         choicesRoot.gameObject.SetActive(false);
         ClearChoices();
+        HideAllPanels();
     }
 
-    private IEnumerator TypeText(Text targetText, string fullText, float charactersPerSecond, Func<bool> wasNextPressed)
+    private static IEnumerator TypeLine(Text targetText, string fullText, float charactersPerSecond, Func<bool> wasNextPressed)
     {
-        targetText.text = string.Empty;
-
-        if (charactersPerSecond <= 0f)
-        {
-            targetText.text = fullText;
-            yield break;
-        }
-
         float secondsPerCharacter = 1f / charactersPerSecond;
         float timer = 0f;
         int visibleCharacters = 0;
@@ -148,19 +155,24 @@ public sealed class DialogueUI
         }
     }
 
+    private static IEnumerator WaitForNextPress(Func<bool> wasNextPressed)
+    {
+        while (!wasNextPressed())
+        {
+            yield return null;
+        }
+
+        yield return null;
+    }
+
     private Text GetTextForSpeaker(string speakerName)
     {
         if (speakerName == "Player")
         {
-            return leftText;
+            return rightText;
         }
 
-        if (speakerName == "Narrator")
-        {
-            return centerText;
-        }
-
-        return rightText;
+        return leftText;
     }
 
     private void ShowOnlyPanel(Text activeText)
@@ -204,7 +216,7 @@ public sealed class DialogueUI
         buttonObject.transform.SetParent(choicesRoot, false);
 
         Image background = buttonObject.AddComponent<Image>();
-        background.color = new Color(0f, 0f, 0f, 0.9f);
+        background.color = new Color(0f, 0f, 0f, 1f);
 
         Button button = buttonObject.AddComponent<Button>();
 
@@ -252,7 +264,7 @@ public sealed class DialogueUI
         panelTransform.sizeDelta = new Vector2(560f, 180f);
 
         Image image = panel.AddComponent<Image>();
-        image.color = new Color(0f, 0f, 0f, 0.88f);
+        image.color = new Color(0f, 0f, 0f, 1f);
 
         GameObject textObject = new GameObject("Text");
         textObject.transform.SetParent(panel.transform, false);

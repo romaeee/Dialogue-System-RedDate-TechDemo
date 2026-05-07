@@ -73,7 +73,8 @@ public sealed class DialogueRunner : MonoBehaviour
             if (element is DialogueLine line)
             {
                 Debug.Log($"{line.SpeakerName}: {line.Text}");
-                yield return dialogueUI.ShowLine(line, typewriterCharactersPerSecond, WasNextPressed);
+                bool hideAfterAdvance = !(i + 1 < node.Elements.Count && node.Elements[i + 1] is DialogueHub);
+                yield return dialogueUI.ShowLine(line, typewriterCharactersPerSecond, WasNextPressed, hideAfterAdvance);
                 continue;
             }
 
