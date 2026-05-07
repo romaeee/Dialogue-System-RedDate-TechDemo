@@ -385,9 +385,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   dialogueText: {fileID: 4900000, guid: b633c6fb1f654ebb9e983a960f6482ec, type: 3}
+  characterDatabase: {fileID: 11400000, guid: 847214430ce264f66a9335f4fe221eda, type: 2}
+  backgroundDatabase: {fileID: 11400000, guid: a0fb81b1943ca4e62902d7af72fe8ae7, type: 2}
   playOnStart: 1
   lineDelaySeconds: 1
   autoSelectFirstChoice: 1
+  characterScreenHeight: 0.75
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

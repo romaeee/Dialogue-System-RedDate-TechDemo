@@ -12,4 +12,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 189ae3a19a324796a3b3b855568aea36, type: 3}
   m_Name: Character Database
   m_EditorClassIdentifier: Assembly-CSharp::CharacterDatabase
-  characters: []
+  characters:
+  - {fileID: 11400000, guid: 385ffb8089d124967ba315fdf48b940b, type: 2}
+  - {fileID: 11400000, guid: cdfeee99933c740368bb6704b1c0b14f, type: 2}
