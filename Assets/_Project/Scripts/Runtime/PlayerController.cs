@@ -6,6 +6,7 @@ public sealed class PlayerController : MonoBehaviour, ISavable<PlayerSaveData>
     [SerializeField] private CharacterDatabase characterDatabase;
     [SerializeField] private RelationshipTypeDatabase relationshipTypeDatabase;
     [SerializeField] private ItemDatabase itemDatabase;
+    [SerializeField] private bool verboseLogging;
 
     private readonly Dictionary<string, int> relationships = new Dictionary<string, int>();
     private readonly HashSet<string> inventoryItems = new HashSet<string>();
@@ -31,7 +32,10 @@ public sealed class PlayerController : MonoBehaviour, ISavable<PlayerSaveData>
         relationships.TryGetValue(key, out int currentValue);
         int newValue = currentValue + change.Delta;
         relationships[key] = newValue;
-        Debug.Log($"[Relationship] {change.CharacterName} {change.RelationshipTypeName}: {newValue} ({change.Delta:+#;-#;0})");
+        if (verboseLogging)
+        {
+            Debug.Log($"[Relationship] {change.CharacterName} {change.RelationshipTypeName}: {newValue} ({change.Delta:+#;-#;0})");
+        }
     }
 
     public int GetRelationshipValue(string characterName, string relationshipTypeName)
@@ -55,12 +59,18 @@ public sealed class PlayerController : MonoBehaviour, ISavable<PlayerSaveData>
         if (change.ShouldAdd)
         {
             inventoryItems.Add(change.ItemName);
-            Debug.Log($"[Inventory] Got item: {change.ItemName}");
+            if (verboseLogging)
+            {
+                Debug.Log($"[Inventory] Got item: {change.ItemName}");
+            }
         }
         else
         {
             inventoryItems.Remove(change.ItemName);
-            Debug.Log($"[Inventory] Lost item: {change.ItemName}");
+            if (verboseLogging)
+            {
+                Debug.Log($"[Inventory] Lost item: {change.ItemName}");
+            }
         }
     }
 

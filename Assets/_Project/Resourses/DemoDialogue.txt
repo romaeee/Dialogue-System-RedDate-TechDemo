@@ -15,7 +15,10 @@ Player: Sorry. (Sorry.) [once]
 		Anna: It's no problem.
 	Back. [back Hub A]
 Player: *Leave.* (Goodbye.)
+	Anna: rs is good test [if trust Anna > 0]
 	Anna: blah blah.
+Player: Test rs (RS is good!) [if trust Anna > 0]
+	Anna: Good
 
 Narrator: Time is up!
 hideCharacter: Anna

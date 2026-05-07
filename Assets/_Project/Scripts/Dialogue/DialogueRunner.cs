@@ -15,6 +15,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
     [SerializeField] private Button loadButton;
     [SerializeField] private Button restoreButton;
     [SerializeField] private bool playOnStart = true;
+    [SerializeField] private bool verboseLogging;
     [SerializeField] private float lineDelaySeconds = 1f;
     [SerializeField] private float typewriterCharactersPerSecond = 45f;
     [SerializeField] private float characterScreenHeight = 0.75f;
@@ -306,9 +307,9 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
             yield break;
         }
 
-        Debug.Log("[Dialogue] Start");
+        LogVerbose("[Dialogue] Start");
         yield return PlayNode(graph.StartNode, 0);
-        Debug.Log("[Dialogue] End");
+        LogVerbose("[Dialogue] End");
         playRoutine = null;
     }
 
@@ -325,13 +326,14 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
 
             if (element is DialogueLine line)
             {
-                if (!AreInventoryConditionsMet(line.InventoryConditions))
+                if (!AreInventoryConditionsMet(line.InventoryConditions) ||
+                    !AreRelationshipConditionsMet(line.RelationshipConditions))
                 {
                     retainedLineBeforeChoices = null;
                     continue;
                 }
 
-                Debug.Log($"{line.SpeakerName}: {line.Text}");
+                LogVerbose($"{line.SpeakerName}: {line.Text}");
                 ApplyRelationshipChanges(line.RelationshipChanges);
                 ApplyInventoryChanges(line.InventoryChanges);
                 bool hideAfterAdvance = !(i + 1 < node.Elements.Count && node.Elements[i + 1] is DialogueHub);
@@ -358,13 +360,13 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
     private IEnumerator PlayHub(DialogueHub hub)
     {
         currentHubName = hub.HubName;
-        Debug.Log($"[Hub] {hub.HubName}");
+        LogVerbose($"[Hub] {hub.HubName}");
         List<DialogueChoice> availableChoices = GetAvailableChoices(hub);
 
         for (int i = 0; i < availableChoices.Count; i++)
         {
             DialogueChoice choice = availableChoices[i];
-            Debug.Log($"[Choice {i + 1}] {choice.BoxText}");
+            LogVerbose($"[Choice {i + 1}] {choice.BoxText}");
         }
 
         if (availableChoices.Count == 0)
@@ -411,7 +413,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
             yield break;
         }
 
-        Debug.Log($"{selectedChoice.SpeakerName}: {selectedChoice.SelectedText}");
+        LogVerbose($"{selectedChoice.SpeakerName}: {selectedChoice.SelectedText}");
         yield return dialogueUI.ShowLine(
             new DialogueLine(selectedChoice.LineNumber, selectedChoice.SpeakerName, selectedChoice.SelectedText),
             typewriterCharactersPerSecond,
@@ -486,10 +488,62 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
                 continue;
             }
 
+            if (!AreRelationshipConditionsMet(choice.RelationshipConditions))
+            {
+                continue;
+            }
+
             availableChoices.Add(choice);
         }
 
         return availableChoices;
+    }
+
+    private bool AreRelationshipConditionsMet(IReadOnlyList<RelationshipCondition> relationshipConditions)
+    {
+        if (relationshipConditions == null || relationshipConditions.Count == 0)
+        {
+            return true;
+        }
+
+        if (playerController == null)
+        {
+            Debug.LogWarning("DialogueRunner has relationship conditions, but PlayerController is not assigned.");
+            return false;
+        }
+
+        for (int i = 0; i < relationshipConditions.Count; i++)
+        {
+            RelationshipCondition condition = relationshipConditions[i];
+            int currentValue = playerController.GetRelationshipValue(condition.CharacterName, condition.RelationshipTypeName);
+            if (!CompareRelationshipValue(currentValue, condition.ComparisonOperator, condition.Value))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool CompareRelationshipValue(int currentValue, string comparisonOperator, int targetValue)
+    {
+        switch (comparisonOperator)
+        {
+            case ">":
+                return currentValue > targetValue;
+            case "<":
+                return currentValue < targetValue;
+            case ">=":
+                return currentValue >= targetValue;
+            case "<=":
+                return currentValue <= targetValue;
+            case "==":
+                return currentValue == targetValue;
+            case "!=":
+                return currentValue != targetValue;
+            default:
+                return false;
+        }
     }
 
     private bool AreInventoryConditionsMet(IReadOnlyList<InventoryCondition> inventoryConditions)
@@ -619,7 +673,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         renderer.enabled = true;
         currentBackgroundName = backgroundName;
         FitBackgroundToCamera(renderer);
-        Debug.Log($"[Command] Show background: {backgroundName}");
+        LogVerbose($"[Command] Show background: {backgroundName}");
     }
 
     private void HideBackground(string backgroundName)
@@ -634,7 +688,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
             currentBackgroundName = null;
         }
 
-        Debug.Log($"[Command] Hide background: {backgroundName}");
+        LogVerbose($"[Command] Hide background: {backgroundName}");
     }
 
     private void ShowCharacter(string characterName)
@@ -657,7 +711,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         renderer.enabled = true;
         visibleCharacterNames.Add(characterName);
         PlaceCharacterAtBottomCenter(renderer);
-        Debug.Log($"[Command] Show character: {characterName}");
+        LogVerbose($"[Command] Show character: {characterName}");
     }
 
     private void HideCharacter(string characterName)
@@ -668,7 +722,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         }
 
         visibleCharacterNames.Remove(characterName);
-        Debug.Log($"[Command] Hide character: {characterName}");
+        LogVerbose($"[Command] Hide character: {characterName}");
     }
 
     private SpriteRenderer GetOrCreateBackgroundRenderer()
@@ -749,5 +803,13 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         }
 
         return targetCamera;
+    }
+
+    private void LogVerbose(string message)
+    {
+        if (verboseLogging)
+        {
+            Debug.Log(message);
+        }
     }
 }

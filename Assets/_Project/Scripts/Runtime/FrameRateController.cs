@@ -4,10 +4,11 @@ public sealed class FrameRateController : MonoBehaviour
 {
     private const int MinFrameRate = 30;
     private const int MaxFrameRate = 120;
-    private const int DefaultFrameRate = 60;
+    private const int DefaultFrameRate = 30;
 
     [SerializeField, Range(MinFrameRate, MaxFrameRate)] private int targetFrameRate = DefaultFrameRate;
     [SerializeField] private bool disableVSync = true;
+    [SerializeField] private bool runInBackground;
 
     private void Awake()
     {
@@ -38,5 +39,6 @@ public sealed class FrameRateController : MonoBehaviour
         }
 
         Application.targetFrameRate = targetFrameRate;
+        Application.runInBackground = runInBackground;
     }
 }

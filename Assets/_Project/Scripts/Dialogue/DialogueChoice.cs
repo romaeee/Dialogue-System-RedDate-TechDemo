@@ -4,6 +4,7 @@ public sealed class DialogueChoice
 {
     private readonly DialogueNode consequenceNode;
     private readonly List<RelationshipChange> relationshipChanges;
+    private readonly List<RelationshipCondition> relationshipConditions;
     private readonly List<InventoryChange> inventoryChanges;
     private readonly List<InventoryCondition> inventoryConditions;
 
@@ -16,6 +17,7 @@ public sealed class DialogueChoice
         string targetHubName = null,
         bool isOnce = false,
         List<RelationshipChange> relationshipChanges = null,
+        List<RelationshipCondition> relationshipConditions = null,
         List<InventoryChange> inventoryChanges = null,
         List<InventoryCondition> inventoryConditions = null)
     {
@@ -27,6 +29,7 @@ public sealed class DialogueChoice
         TargetHubName = targetHubName;
         IsOnce = isOnce;
         this.relationshipChanges = relationshipChanges ?? new List<RelationshipChange>();
+        this.relationshipConditions = relationshipConditions ?? new List<RelationshipCondition>();
         this.inventoryChanges = inventoryChanges ?? new List<InventoryChange>();
         this.inventoryConditions = inventoryConditions ?? new List<InventoryCondition>();
     }
@@ -40,6 +43,7 @@ public sealed class DialogueChoice
     public bool IsOnce { get; }
     public bool HasHubTarget => !string.IsNullOrWhiteSpace(TargetHubName);
     public IReadOnlyList<RelationshipChange> RelationshipChanges => relationshipChanges;
+    public IReadOnlyList<RelationshipCondition> RelationshipConditions => relationshipConditions;
     public IReadOnlyList<InventoryChange> InventoryChanges => inventoryChanges;
     public IReadOnlyList<InventoryCondition> InventoryConditions => inventoryConditions;
 }

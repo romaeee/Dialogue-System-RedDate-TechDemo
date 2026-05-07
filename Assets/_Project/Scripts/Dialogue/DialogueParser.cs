@@ -116,6 +116,7 @@ public static class DialogueParser
                 optionHeader.TargetHubName,
                 optionHeader.IsOnce,
                 optionHeader.RelationshipChanges,
+                optionHeader.RelationshipConditions,
                 optionHeader.InventoryChanges,
                 optionHeader.InventoryConditions));
         }
@@ -241,6 +242,7 @@ public static class DialogueParser
             out _,
             out _,
             out List<RelationshipChange> relationshipChanges,
+            out List<RelationshipCondition> relationshipConditions,
             out List<InventoryChange> inventoryChanges,
             out List<InventoryCondition> inventoryConditions);
 
@@ -254,6 +256,7 @@ public static class DialogueParser
             speakerName,
             dialogueText,
             relationshipChanges,
+            relationshipConditions,
             inventoryChanges,
             inventoryConditions);
         return true;
@@ -272,6 +275,7 @@ public static class DialogueParser
                 out string linkTargetHubName,
                 out bool linkIsOnce,
                 out List<RelationshipChange> linkRelationshipChanges,
+                out List<RelationshipCondition> linkRelationshipConditions,
                 out List<InventoryChange> linkInventoryChanges,
                 out List<InventoryCondition> linkInventoryConditions);
 
@@ -293,6 +297,7 @@ public static class DialogueParser
                 linkTargetHubName,
                 linkIsOnce,
                 linkRelationshipChanges,
+                linkRelationshipConditions,
                 linkInventoryChanges,
                 linkInventoryConditions);
             return true;
@@ -305,6 +310,7 @@ public static class DialogueParser
             out string targetHubName,
             out bool isOnce,
             out List<RelationshipChange> relationshipChanges,
+            out List<RelationshipCondition> relationshipConditions,
             out List<InventoryChange> inventoryChanges,
             out List<InventoryCondition> inventoryConditions);
 
@@ -334,6 +340,7 @@ public static class DialogueParser
             targetHubName,
             isOnce,
             relationshipChanges,
+            relationshipConditions,
             inventoryChanges,
             inventoryConditions);
         return true;
@@ -344,12 +351,14 @@ public static class DialogueParser
         out string targetHubName,
         out bool isOnce,
         out List<RelationshipChange> relationshipChanges,
+        out List<RelationshipCondition> relationshipConditions,
         out List<InventoryChange> inventoryChanges,
         out List<InventoryCondition> inventoryConditions)
     {
         targetHubName = null;
         isOnce = false;
         relationshipChanges = new List<RelationshipChange>();
+        relationshipConditions = new List<RelationshipCondition>();
         inventoryChanges = new List<InventoryChange>();
         inventoryConditions = new List<InventoryCondition>();
 
@@ -376,6 +385,12 @@ public static class DialogueParser
             if (TryReadRelationshipChange(tagText, out RelationshipChange relationshipChange))
             {
                 relationshipChanges.Add(relationshipChange);
+                continue;
+            }
+
+            if (TryReadRelationshipCondition(tagText, out RelationshipCondition relationshipCondition))
+            {
+                relationshipConditions.Add(relationshipCondition);
                 continue;
             }
 
@@ -425,6 +440,47 @@ public static class DialogueParser
         }
 
         return false;
+    }
+
+    private static bool TryReadRelationshipCondition(string tagText, out RelationshipCondition relationshipCondition)
+    {
+        relationshipCondition = null;
+
+        if (!tagText.StartsWith("if ", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string conditionText = tagText.Substring(3).Trim();
+        string[] parts = conditionText.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 4 || !TryNormalizeComparisonOperator(parts[2], out string comparisonOperator) || !int.TryParse(parts[3], out int value))
+        {
+            return false;
+        }
+
+        relationshipCondition = new RelationshipCondition(parts[0], parts[1], comparisonOperator, value);
+        return true;
+    }
+
+    private static bool TryNormalizeComparisonOperator(string rawOperator, out string comparisonOperator)
+    {
+        switch (rawOperator)
+        {
+            case ">":
+            case "<":
+            case ">=":
+            case "<=":
+            case "==":
+            case "!=":
+                comparisonOperator = rawOperator;
+                return true;
+            case "=":
+                comparisonOperator = "==";
+                return true;
+            default:
+                comparisonOperator = null;
+                return false;
+        }
     }
 
     private static bool IsGotCondition(string commandName)
@@ -571,6 +627,7 @@ public static class DialogueParser
             string targetHubName = null,
             bool isOnce = false,
             List<RelationshipChange> relationshipChanges = null,
+            List<RelationshipCondition> relationshipConditions = null,
             List<InventoryChange> inventoryChanges = null,
             List<InventoryCondition> inventoryConditions = null)
         {
@@ -581,6 +638,7 @@ public static class DialogueParser
             TargetHubName = targetHubName;
             IsOnce = isOnce;
             RelationshipChanges = relationshipChanges ?? new List<RelationshipChange>();
+            RelationshipConditions = relationshipConditions ?? new List<RelationshipCondition>();
             InventoryChanges = inventoryChanges ?? new List<InventoryChange>();
             InventoryConditions = inventoryConditions ?? new List<InventoryCondition>();
         }
@@ -592,6 +650,7 @@ public static class DialogueParser
         public string TargetHubName { get; }
         public bool IsOnce { get; }
         public List<RelationshipChange> RelationshipChanges { get; }
+        public List<RelationshipCondition> RelationshipConditions { get; }
         public List<InventoryChange> InventoryChanges { get; }
         public List<InventoryCondition> InventoryConditions { get; }
     }
