@@ -112,7 +112,8 @@ public static class DialogueParser
                 optionHeader.SpeakerName,
                 optionHeader.BoxText,
                 optionHeader.SelectedText,
-                consequenceNode));
+                consequenceNode,
+                optionHeader.TargetHubName));
         }
 
         if (choices.Count == 0)
@@ -248,11 +249,24 @@ public static class DialogueParser
 
         if (separatorIndex < 0)
         {
-            return false;
+            string linkChoiceText = text.Trim();
+            if (!TryExtractHubTarget(ref linkChoiceText, out string linkTargetHubName))
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(linkChoiceText))
+            {
+                throw new DialogueParseException(lineNumber, "Linked choice needs button text before the [back/go Hub] target.");
+            }
+
+            optionHeader = new DialogueOptionHeader(lineNumber, string.Empty, linkChoiceText, string.Empty, linkTargetHubName);
+            return true;
         }
 
         string speakerName = text.Substring(0, separatorIndex).Trim();
         string optionText = text.Substring(separatorIndex + 1).Trim();
+        TryExtractHubTarget(ref optionText, out string targetHubName);
 
         int closeIndex = optionText.LastIndexOf(')');
         int openIndex = optionText.LastIndexOf('(');
@@ -272,8 +286,57 @@ public static class DialogueParser
             throw new DialogueParseException(lineNumber, "Choice options need speaker, box text, and selected text.");
         }
 
-        optionHeader = new DialogueOptionHeader(lineNumber, speakerName, boxText, selectedText);
+        optionHeader = new DialogueOptionHeader(lineNumber, speakerName, boxText, selectedText, targetHubName);
         return true;
+    }
+
+    private static bool TryExtractHubTarget(ref string text, out string targetHubName)
+    {
+        targetHubName = null;
+        string trimmedText = text.Trim();
+
+        if (!trimmedText.EndsWith("]", StringComparison.Ordinal))
+        {
+            text = trimmedText;
+            return false;
+        }
+
+        int openIndex = trimmedText.LastIndexOf('[');
+        if (openIndex < 0)
+        {
+            text = trimmedText;
+            return false;
+        }
+
+        string commandText = trimmedText.Substring(openIndex + 1, trimmedText.Length - openIndex - 2).Trim();
+
+        if (TryReadHubTarget(commandText, "back ", out targetHubName) ||
+            TryReadHubTarget(commandText, "go ", out targetHubName))
+        {
+            text = trimmedText.Substring(0, openIndex).Trim();
+            return true;
+        }
+
+        text = trimmedText;
+        return false;
+    }
+
+    private static bool TryReadHubTarget(string commandText, string prefix, out string targetHubName)
+    {
+        targetHubName = null;
+
+        if (!commandText.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        targetHubName = commandText.Substring(prefix.Length).Trim();
+        if (targetHubName.StartsWith("Hub ", StringComparison.OrdinalIgnoreCase))
+        {
+            targetHubName = targetHubName.Substring(4).Trim();
+        }
+
+        return !string.IsNullOrWhiteSpace(targetHubName);
     }
 
     private sealed class ParsedLine
@@ -292,17 +355,19 @@ public static class DialogueParser
 
     private sealed class DialogueOptionHeader
     {
-        public DialogueOptionHeader(int lineNumber, string speakerName, string boxText, string selectedText)
+        public DialogueOptionHeader(int lineNumber, string speakerName, string boxText, string selectedText, string targetHubName = null)
         {
             LineNumber = lineNumber;
             SpeakerName = speakerName;
             BoxText = boxText;
             SelectedText = selectedText;
+            TargetHubName = targetHubName;
         }
 
         public int LineNumber { get; }
         public string SpeakerName { get; }
         public string BoxText { get; }
         public string SelectedText { get; }
+        public string TargetHubName { get; }
     }
 }

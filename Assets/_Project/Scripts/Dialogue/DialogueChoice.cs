@@ -9,13 +9,15 @@ public sealed class DialogueChoice
         string speakerName,
         string boxText,
         string selectedText,
-        DialogueNode consequenceNode)
+        DialogueNode consequenceNode,
+        string targetHubName = null)
     {
         LineNumber = lineNumber;
         SpeakerName = speakerName;
         BoxText = boxText;
         SelectedText = selectedText;
         this.consequenceNode = consequenceNode;
+        TargetHubName = targetHubName;
     }
 
     public int LineNumber { get; }
@@ -23,4 +25,6 @@ public sealed class DialogueChoice
     public string BoxText { get; }
     public string SelectedText { get; }
     public DialogueNode ConsequenceNode => consequenceNode;
+    public string TargetHubName { get; }
+    public bool HasHubTarget => !string.IsNullOrWhiteSpace(TargetHubName);
 }

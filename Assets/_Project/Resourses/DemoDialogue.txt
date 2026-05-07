@@ -13,6 +13,7 @@ Player: Sorry. (Sorry.)
 		Anna: I'm good!
 	Player: Option 2. (Sorry, again!)
 		Anna: It's no problem.
+	Back. [back Hub A]
 Player: *Leave.* (Goodbye.)
 	Anna: blah blah.
 

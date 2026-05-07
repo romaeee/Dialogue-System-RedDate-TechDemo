@@ -19,6 +19,7 @@ public sealed class DialogueRunner : MonoBehaviour
     private DialogueUI dialogueUI;
     private WaitForSeconds cachedLineDelay;
     private float cachedLineDelaySeconds = -1f;
+    private readonly Dictionary<string, DialogueHub> hubsByName = new Dictionary<string, DialogueHub>();
     private readonly Dictionary<string, SpriteRenderer> characterRenderers = new Dictionary<string, SpriteRenderer>();
 
     private void Start()
@@ -43,6 +44,8 @@ public sealed class DialogueRunner : MonoBehaviour
         }
 
         DialogueGraph graph = DialogueParser.Parse(dialogueText);
+        BuildHubLookup(graph);
+
         if (dialogueUI == null)
         {
             dialogueUI = new DialogueUI(transform);
@@ -122,12 +125,44 @@ public sealed class DialogueRunner : MonoBehaviour
 
         DialogueChoice selectedChoice = hub.Choices[dialogueUI.SelectedChoiceIndex];
         dialogueUI.HideChoices();
+
+        if (selectedChoice.HasHubTarget)
+        {
+            if (hubsByName.TryGetValue(selectedChoice.TargetHubName, out DialogueHub targetHub))
+            {
+                yield return PlayHub(targetHub);
+            }
+            else
+            {
+                Debug.LogError($"Hub \"{selectedChoice.TargetHubName}\" was not found.");
+            }
+
+            yield break;
+        }
+
         Debug.Log($"{selectedChoice.SpeakerName}: {selectedChoice.SelectedText}");
         yield return dialogueUI.ShowLine(
             new DialogueLine(selectedChoice.LineNumber, selectedChoice.SpeakerName, selectedChoice.SelectedText),
             typewriterCharactersPerSecond,
             WasNextPressed);
         yield return PlayNode(selectedChoice.ConsequenceNode);
+    }
+
+    private void BuildHubLookup(DialogueGraph graph)
+    {
+        hubsByName.Clear();
+
+        for (int i = 0; i < graph.Nodes.Count; i++)
+        {
+            DialogueNode node = graph.Nodes[i];
+            for (int j = 0; j < node.Elements.Count; j++)
+            {
+                if (node.Elements[j] is DialogueHub hub)
+                {
+                    hubsByName[hub.HubName] = hub;
+                }
+            }
+        }
     }
 
     private void HandleCommand(DialogueCommand command)
