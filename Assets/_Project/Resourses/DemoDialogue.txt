@@ -7,7 +7,7 @@ Anna: You always say that.
 
 Hub A
 Player: Sorry. (Sorry.) [once]
-	Anna: Hm. Fine. [relationship trust Anna +1]
+	Anna: Hm. Fine. [relationship trust Anna +1] [get microphone]
 	Hub A1
 	Player: Option 1. (How are you!)
 		Anna: I'm good!
@@ -23,8 +23,18 @@ hideCharacter: Anna
 showCharacter: May
 May: Hello!
 Player: Hi! How are you?
-May: I'm okay.
+May: Do you have microphone?
+Hub B
+Player: Yes. (Yes.) [if got microphone]
+	May: 1
+Player: No *lie*. (No.) [if got microphone]
+	May: 2
+Player: Yes *lie*. (Yes.) [if no microphone]
+	May: 3
+Player: No. (No.) [if no microphone]
+	May: 4
+
+
 
 hideCharacter: May
-
 hideBackground: Room

@@ -325,8 +325,15 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
 
             if (element is DialogueLine line)
             {
+                if (!AreInventoryConditionsMet(line.InventoryConditions))
+                {
+                    retainedLineBeforeChoices = null;
+                    continue;
+                }
+
                 Debug.Log($"{line.SpeakerName}: {line.Text}");
                 ApplyRelationshipChanges(line.RelationshipChanges);
+                ApplyInventoryChanges(line.InventoryChanges);
                 bool hideAfterAdvance = !(i + 1 < node.Elements.Count && node.Elements[i + 1] is DialogueHub);
                 yield return dialogueUI.ShowLine(line, typewriterCharactersPerSecond, WasNextPressed, hideAfterAdvance);
                 retainedLineBeforeChoices = hideAfterAdvance ? null : line;
@@ -385,6 +392,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         }
 
         ApplyRelationshipChanges(selectedChoice.RelationshipChanges);
+        ApplyInventoryChanges(selectedChoice.InventoryChanges);
         dialogueUI.HideChoices();
         retainedLineBeforeChoices = null;
         currentHubName = null;
@@ -442,6 +450,25 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         }
     }
 
+    private void ApplyInventoryChanges(IReadOnlyList<InventoryChange> inventoryChanges)
+    {
+        if (inventoryChanges == null || inventoryChanges.Count == 0)
+        {
+            return;
+        }
+
+        if (playerController == null)
+        {
+            Debug.LogWarning("DialogueRunner has inventory changes, but PlayerController is not assigned.");
+            return;
+        }
+
+        for (int i = 0; i < inventoryChanges.Count; i++)
+        {
+            playerController.ApplyInventoryChange(inventoryChanges[i]);
+        }
+    }
+
     private List<DialogueChoice> GetAvailableChoices(DialogueHub hub)
     {
         List<DialogueChoice> availableChoices = new List<DialogueChoice>();
@@ -454,10 +481,41 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
                 continue;
             }
 
+            if (!AreInventoryConditionsMet(choice.InventoryConditions))
+            {
+                continue;
+            }
+
             availableChoices.Add(choice);
         }
 
         return availableChoices;
+    }
+
+    private bool AreInventoryConditionsMet(IReadOnlyList<InventoryCondition> inventoryConditions)
+    {
+        if (inventoryConditions == null || inventoryConditions.Count == 0)
+        {
+            return true;
+        }
+
+        if (playerController == null)
+        {
+            Debug.LogWarning("DialogueRunner has inventory conditions, but PlayerController is not assigned.");
+            return false;
+        }
+
+        for (int i = 0; i < inventoryConditions.Count; i++)
+        {
+            InventoryCondition condition = inventoryConditions[i];
+            bool hasItem = playerController.HasItem(condition.ItemName);
+            if (hasItem != condition.ShouldHaveItem)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void BuildGraphLookup(DialogueGraph graph)

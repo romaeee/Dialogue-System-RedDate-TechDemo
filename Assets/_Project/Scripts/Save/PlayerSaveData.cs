@@ -5,4 +5,5 @@ using System.Collections.Generic;
 public sealed class PlayerSaveData
 {
     public List<RelationshipValueSaveData> relationships = new List<RelationshipValueSaveData>();
+    public List<InventoryItemSaveData> inventoryItems = new List<InventoryItemSaveData>();
 }

@@ -115,7 +115,9 @@ public static class DialogueParser
                 consequenceNode,
                 optionHeader.TargetHubName,
                 optionHeader.IsOnce,
-                optionHeader.RelationshipChanges));
+                optionHeader.RelationshipChanges,
+                optionHeader.InventoryChanges,
+                optionHeader.InventoryConditions));
         }
 
         if (choices.Count == 0)
@@ -234,14 +236,26 @@ public static class DialogueParser
 
         string speakerName = text.Substring(0, separatorIndex).Trim();
         string dialogueText = text.Substring(separatorIndex + 1).Trim();
-        ExtractTags(ref dialogueText, out _, out _, out List<RelationshipChange> relationshipChanges);
+        ExtractTags(
+            ref dialogueText,
+            out _,
+            out _,
+            out List<RelationshipChange> relationshipChanges,
+            out List<InventoryChange> inventoryChanges,
+            out List<InventoryCondition> inventoryConditions);
 
         if (string.IsNullOrWhiteSpace(speakerName) || string.IsNullOrWhiteSpace(dialogueText))
         {
             throw new DialogueParseException(lineNumber, "Dialogue lines need both a speaker and text.");
         }
 
-        dialogueLine = new DialogueLine(lineNumber, speakerName, dialogueText, relationshipChanges);
+        dialogueLine = new DialogueLine(
+            lineNumber,
+            speakerName,
+            dialogueText,
+            relationshipChanges,
+            inventoryChanges,
+            inventoryConditions);
         return true;
     }
 
@@ -253,7 +267,13 @@ public static class DialogueParser
         if (separatorIndex < 0)
         {
             string linkChoiceText = text.Trim();
-            ExtractTags(ref linkChoiceText, out string linkTargetHubName, out bool linkIsOnce, out List<RelationshipChange> linkRelationshipChanges);
+            ExtractTags(
+                ref linkChoiceText,
+                out string linkTargetHubName,
+                out bool linkIsOnce,
+                out List<RelationshipChange> linkRelationshipChanges,
+                out List<InventoryChange> linkInventoryChanges,
+                out List<InventoryCondition> linkInventoryConditions);
 
             if (string.IsNullOrWhiteSpace(linkTargetHubName))
             {
@@ -265,13 +285,28 @@ public static class DialogueParser
                 throw new DialogueParseException(lineNumber, "Linked choice needs button text before the [back/go Hub] target.");
             }
 
-            optionHeader = new DialogueOptionHeader(lineNumber, string.Empty, linkChoiceText, string.Empty, linkTargetHubName, linkIsOnce, linkRelationshipChanges);
+            optionHeader = new DialogueOptionHeader(
+                lineNumber,
+                string.Empty,
+                linkChoiceText,
+                string.Empty,
+                linkTargetHubName,
+                linkIsOnce,
+                linkRelationshipChanges,
+                linkInventoryChanges,
+                linkInventoryConditions);
             return true;
         }
 
         string speakerName = text.Substring(0, separatorIndex).Trim();
         string optionText = text.Substring(separatorIndex + 1).Trim();
-        ExtractTags(ref optionText, out string targetHubName, out bool isOnce, out List<RelationshipChange> relationshipChanges);
+        ExtractTags(
+            ref optionText,
+            out string targetHubName,
+            out bool isOnce,
+            out List<RelationshipChange> relationshipChanges,
+            out List<InventoryChange> inventoryChanges,
+            out List<InventoryCondition> inventoryConditions);
 
         int closeIndex = optionText.LastIndexOf(')');
         int openIndex = optionText.LastIndexOf('(');
@@ -291,7 +326,16 @@ public static class DialogueParser
             throw new DialogueParseException(lineNumber, "Choice options need speaker, box text, and selected text.");
         }
 
-        optionHeader = new DialogueOptionHeader(lineNumber, speakerName, boxText, selectedText, targetHubName, isOnce, relationshipChanges);
+        optionHeader = new DialogueOptionHeader(
+            lineNumber,
+            speakerName,
+            boxText,
+            selectedText,
+            targetHubName,
+            isOnce,
+            relationshipChanges,
+            inventoryChanges,
+            inventoryConditions);
         return true;
     }
 
@@ -299,11 +343,15 @@ public static class DialogueParser
         ref string text,
         out string targetHubName,
         out bool isOnce,
-        out List<RelationshipChange> relationshipChanges)
+        out List<RelationshipChange> relationshipChanges,
+        out List<InventoryChange> inventoryChanges,
+        out List<InventoryCondition> inventoryConditions)
     {
         targetHubName = null;
         isOnce = false;
         relationshipChanges = new List<RelationshipChange>();
+        inventoryChanges = new List<InventoryChange>();
+        inventoryConditions = new List<InventoryCondition>();
 
         while (TryExtractLastTag(ref text, out string tagText))
         {
@@ -331,9 +379,112 @@ public static class DialogueParser
                 continue;
             }
 
+            if (TryReadInventoryChange(tagText, out InventoryChange inventoryChange))
+            {
+                inventoryChanges.Add(inventoryChange);
+                continue;
+            }
+
+            if (TryReadInventoryCondition(tagText, out InventoryCondition inventoryCondition))
+            {
+                inventoryConditions.Add(inventoryCondition);
+                continue;
+            }
+
             text = $"{text} [{tagText}]".Trim();
             break;
         }
+    }
+
+    private static bool TryReadInventoryCondition(string tagText, out InventoryCondition inventoryCondition)
+    {
+        inventoryCondition = null;
+
+        if (!tagText.StartsWith("if ", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string conditionText = tagText.Substring(3).Trim();
+        string[] parts = conditionText.Split(new[] { ' ' }, 2, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 2)
+        {
+            return false;
+        }
+
+        if (IsGotCondition(parts[0]))
+        {
+            inventoryCondition = new InventoryCondition(NormalizeItemName(parts[1]), true);
+            return true;
+        }
+
+        if (IsMissingCondition(parts[0]))
+        {
+            inventoryCondition = new InventoryCondition(NormalizeItemName(parts[1]), false);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsGotCondition(string commandName)
+    {
+        return commandName.Equals("got", StringComparison.OrdinalIgnoreCase) ||
+            commandName.Equals("has", StringComparison.OrdinalIgnoreCase) ||
+            commandName.Equals("have", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsMissingCondition(string commandName)
+    {
+        return commandName.Equals("notgot", StringComparison.OrdinalIgnoreCase) ||
+            commandName.Equals("missing", StringComparison.OrdinalIgnoreCase) ||
+            commandName.Equals("no", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryReadInventoryChange(string tagText, out InventoryChange inventoryChange)
+    {
+        inventoryChange = null;
+
+        string[] parts = tagText.Split(new[] { ' ' }, 2, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 2)
+        {
+            return false;
+        }
+
+        if (IsGetCommand(parts[0]))
+        {
+            inventoryChange = new InventoryChange(NormalizeItemName(parts[1]), true);
+            return true;
+        }
+
+        if (IsLoseCommand(parts[0]))
+        {
+            inventoryChange = new InventoryChange(NormalizeItemName(parts[1]), false);
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool IsGetCommand(string commandName)
+    {
+        return commandName.Equals("get", StringComparison.OrdinalIgnoreCase) ||
+            commandName.Equals("take", StringComparison.OrdinalIgnoreCase) ||
+            commandName.Equals("add", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsLoseCommand(string commandName)
+    {
+        return commandName.Equals("lose", StringComparison.OrdinalIgnoreCase) ||
+            commandName.Equals("lost", StringComparison.OrdinalIgnoreCase) ||
+            commandName.Equals("remove", StringComparison.OrdinalIgnoreCase) ||
+            commandName.Equals("drop", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string NormalizeItemName(string itemName)
+    {
+        string normalizedName = itemName.Trim();
+        return normalizedName.Equals("microphon", StringComparison.OrdinalIgnoreCase) ? "microphone" : normalizedName;
     }
 
     private static bool TryReadRelationshipChange(string tagText, out RelationshipChange relationshipChange)
@@ -419,7 +570,9 @@ public static class DialogueParser
             string selectedText,
             string targetHubName = null,
             bool isOnce = false,
-            List<RelationshipChange> relationshipChanges = null)
+            List<RelationshipChange> relationshipChanges = null,
+            List<InventoryChange> inventoryChanges = null,
+            List<InventoryCondition> inventoryConditions = null)
         {
             LineNumber = lineNumber;
             SpeakerName = speakerName;
@@ -428,6 +581,8 @@ public static class DialogueParser
             TargetHubName = targetHubName;
             IsOnce = isOnce;
             RelationshipChanges = relationshipChanges ?? new List<RelationshipChange>();
+            InventoryChanges = inventoryChanges ?? new List<InventoryChange>();
+            InventoryConditions = inventoryConditions ?? new List<InventoryCondition>();
         }
 
         public int LineNumber { get; }
@@ -437,5 +592,7 @@ public static class DialogueParser
         public string TargetHubName { get; }
         public bool IsOnce { get; }
         public List<RelationshipChange> RelationshipChanges { get; }
+        public List<InventoryChange> InventoryChanges { get; }
+        public List<InventoryCondition> InventoryConditions { get; }
     }
 }

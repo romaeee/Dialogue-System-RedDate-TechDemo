@@ -2131,6 +2131,7 @@ GameObject:
   - component: {fileID: 1919346281}
   - component: {fileID: 1919346282}
   - component: {fileID: 1919346283}
+  - component: {fileID: 1919346284}
   m_Layer: 0
   m_Name: Player Controller
   m_TagString: Untagged
@@ -2167,6 +2168,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   characterDatabase: {fileID: 11400000, guid: 847214430ce264f66a9335f4fe221eda, type: 2}
   relationshipTypeDatabase: {fileID: 11400000, guid: f495612773e244d4afb03b27f9c687e9, type: 2}
+  itemDatabase: {fileID: 11400000, guid: 7b089ffc8240483fb439ed293218be42, type: 2}
 --- !u!114 &1919346283
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2188,6 +2190,20 @@ MonoBehaviour:
   relationshipBarPrefab: {fileID: 100004, guid: d707c9d98c1244d578a7768008164af5, type: 3}
   minRelationshipValue: -10
   maxRelationshipValue: 10
+--- !u!114 &1919346284
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1919346280}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e7019f08be640d78915ccd377df0ca9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  invButton: {fileID: 1211850709}
+  playerController: {fileID: 1919346282}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

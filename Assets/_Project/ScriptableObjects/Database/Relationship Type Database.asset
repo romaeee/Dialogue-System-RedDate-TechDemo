@@ -14,3 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::RelationshipTypeDatabase
   relationshipTypes:
   - {fileID: 11400000, guid: b3f814b1446141a48c44a1867b3a5d59, type: 2}
+  - {fileID: 11400000, guid: bb3c7ff1d1047414e83ab29ba528c3c9, type: 2}
