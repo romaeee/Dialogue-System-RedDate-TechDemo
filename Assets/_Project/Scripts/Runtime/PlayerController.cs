@@ -81,6 +81,12 @@ public sealed class PlayerController : MonoBehaviour, ISavable<PlayerSaveData>
 
     public IReadOnlyCollection<string> InventoryItems => inventoryItems;
 
+    public void ResetState()
+    {
+        relationships.Clear();
+        inventoryItems.Clear();
+    }
+
     public PlayerSaveData CaptureState()
     {
         PlayerSaveData state = new PlayerSaveData();
@@ -109,18 +115,20 @@ public sealed class PlayerController : MonoBehaviour, ISavable<PlayerSaveData>
 
     public void RestoreState(PlayerSaveData state)
     {
-        relationships.Clear();
-        inventoryItems.Clear();
+        ResetState();
 
         if (state == null)
         {
             return;
         }
 
-        for (int i = 0; i < state.relationships.Count; i++)
+        if (state.relationships != null)
         {
-            RelationshipValueSaveData relationship = state.relationships[i];
-            relationships[BuildKey(relationship.characterName, relationship.relationshipTypeName)] = relationship.value;
+            for (int i = 0; i < state.relationships.Count; i++)
+            {
+                RelationshipValueSaveData relationship = state.relationships[i];
+                relationships[BuildKey(relationship.characterName, relationship.relationshipTypeName)] = relationship.value;
+            }
         }
 
         if (state.inventoryItems == null)

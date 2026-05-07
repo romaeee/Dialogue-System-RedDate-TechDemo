@@ -81,6 +81,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
 
         DialogueGraph graph = BuildGraph();
         ResetRuntimeState();
+        ResetPlayerState();
         StartGraph(graph);
     }
 
@@ -237,6 +238,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
 
         if (playerController != null)
         {
+            playerController.ResetState();
             playerController.RestoreState(saveData.player);
         }
 
@@ -300,6 +302,14 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         }
     }
 
+    private void ResetPlayerState()
+    {
+        if (playerController != null)
+        {
+            playerController.ResetState();
+        }
+    }
+
     private IEnumerator PlayGraph(DialogueGraph graph)
     {
         if (graph.StartNode == null)
@@ -308,12 +318,12 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         }
 
         LogVerbose("[Dialogue] Start");
-        yield return PlayNode(graph.StartNode, 0);
+        yield return PlayNode(graph.StartNode, 0, false);
         LogVerbose("[Dialogue] End");
         playRoutine = null;
     }
 
-    private IEnumerator PlayNode(DialogueNode node, int startIndex)
+    private IEnumerator PlayNode(DialogueNode node, int startIndex, bool stopAfterHub)
     {
         currentNodeName = node.NodeName;
 
@@ -353,6 +363,11 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
             if (element is DialogueHub hub)
             {
                 yield return PlayHub(hub);
+
+                if (stopAfterHub)
+                {
+                    yield break;
+                }
             }
         }
     }
@@ -419,7 +434,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
             typewriterCharactersPerSecond,
             WasNextPressed);
         retainedLineBeforeChoices = null;
-        yield return PlayNode(selectedChoice.ConsequenceNode, 0);
+        yield return PlayNode(selectedChoice.ConsequenceNode, 0, true);
     }
 
     private IEnumerator PlayRestoredPosition(DialogueNode node, int startIndex, string activeHubName)
@@ -430,7 +445,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
             yield break;
         }
 
-        yield return PlayNode(node, startIndex);
+        yield return PlayNode(node, startIndex, false);
     }
 
     private void ApplyRelationshipChanges(IReadOnlyList<RelationshipChange> relationshipChanges)
