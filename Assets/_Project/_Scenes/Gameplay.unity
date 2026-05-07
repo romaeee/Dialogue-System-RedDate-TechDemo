@@ -389,7 +389,7 @@ MonoBehaviour:
   backgroundDatabase: {fileID: 11400000, guid: a0fb81b1943ca4e62902d7af72fe8ae7, type: 2}
   playOnStart: 1
   lineDelaySeconds: 1
-  autoSelectFirstChoice: 1
+  typewriterCharactersPerSecond: 45
   characterScreenHeight: 0.75
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

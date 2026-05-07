@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public sealed class DialogueRunner : MonoBehaviour
 {
@@ -9,12 +10,13 @@ public sealed class DialogueRunner : MonoBehaviour
     [SerializeField] private BackgroundDatabase backgroundDatabase;
     [SerializeField] private bool playOnStart = true;
     [SerializeField] private float lineDelaySeconds = 1f;
-    [SerializeField] private bool autoSelectFirstChoice = true;
+    [SerializeField] private float typewriterCharactersPerSecond = 45f;
     [SerializeField] private float characterScreenHeight = 0.75f;
 
     private Coroutine playRoutine;
     private Camera targetCamera;
     private SpriteRenderer backgroundRenderer;
+    private DialogueUI dialogueUI;
     private readonly Dictionary<string, SpriteRenderer> characterRenderers = new Dictionary<string, SpriteRenderer>();
 
     private void Start()
@@ -39,6 +41,11 @@ public sealed class DialogueRunner : MonoBehaviour
         }
 
         DialogueGraph graph = DialogueParser.Parse(dialogueText);
+        if (dialogueUI == null)
+        {
+            dialogueUI = new DialogueUI(transform);
+        }
+
         playRoutine = StartCoroutine(PlayGraph(graph));
     }
 
@@ -64,7 +71,7 @@ public sealed class DialogueRunner : MonoBehaviour
             if (element is DialogueLine line)
             {
                 Debug.Log($"{line.SpeakerName}: {line.Text}");
-                yield return WaitForLineDelay();
+                yield return dialogueUI.ShowLine(line, typewriterCharactersPerSecond, WasNextPressed);
                 continue;
             }
 
@@ -92,16 +99,31 @@ public sealed class DialogueRunner : MonoBehaviour
             Debug.Log($"[Choice {i + 1}] {choice.BoxText}");
         }
 
-        if (!autoSelectFirstChoice || hub.Choices.Count == 0)
+        if (hub.Choices.Count == 0)
         {
             yield break;
         }
 
-        yield return WaitForLineDelay();
+        dialogueUI.ShowChoices(hub.Choices);
 
-        DialogueChoice selectedChoice = hub.Choices[0];
+        while (dialogueUI.SelectedChoiceIndex < 0)
+        {
+            int keyboardChoiceIndex = GetPressedChoiceIndex(hub.Choices.Count);
+            if (keyboardChoiceIndex >= 0)
+            {
+                dialogueUI.SelectChoice(keyboardChoiceIndex);
+            }
+
+            yield return null;
+        }
+
+        DialogueChoice selectedChoice = hub.Choices[dialogueUI.SelectedChoiceIndex];
+        dialogueUI.HideChoices();
         Debug.Log($"{selectedChoice.SpeakerName}: {selectedChoice.SelectedText}");
-        yield return WaitForLineDelay();
+        yield return dialogueUI.ShowLine(
+            new DialogueLine(selectedChoice.LineNumber, selectedChoice.SpeakerName, selectedChoice.SelectedText),
+            typewriterCharactersPerSecond,
+            WasNextPressed);
         yield return PlayNode(selectedChoice.ConsequenceNode);
     }
 
@@ -127,6 +149,37 @@ public sealed class DialogueRunner : MonoBehaviour
     private WaitForSeconds WaitForLineDelay()
     {
         return new WaitForSeconds(lineDelaySeconds);
+    }
+
+    private bool WasNextPressed()
+    {
+        return Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
+    }
+
+    private int GetPressedChoiceIndex(int choiceCount)
+    {
+        if (Keyboard.current == null)
+        {
+            return -1;
+        }
+
+        for (int i = 0; i < choiceCount && i < 9; i++)
+        {
+            if (Keyboard.current.digit1Key.wasPressedThisFrame && i == 0 ||
+                Keyboard.current.digit2Key.wasPressedThisFrame && i == 1 ||
+                Keyboard.current.digit3Key.wasPressedThisFrame && i == 2 ||
+                Keyboard.current.digit4Key.wasPressedThisFrame && i == 3 ||
+                Keyboard.current.digit5Key.wasPressedThisFrame && i == 4 ||
+                Keyboard.current.digit6Key.wasPressedThisFrame && i == 5 ||
+                Keyboard.current.digit7Key.wasPressedThisFrame && i == 6 ||
+                Keyboard.current.digit8Key.wasPressedThisFrame && i == 7 ||
+                Keyboard.current.digit9Key.wasPressedThisFrame && i == 8)
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     private void ShowBackground(string backgroundName)
