@@ -120,6 +120,7 @@ public sealed class DialogueUI
         float secondsPerCharacter = 1f / charactersPerSecond;
         float timer = 0f;
         int visibleCharacters = 0;
+        int lastVisibleCharacters = -1;
 
         while (visibleCharacters < fullText.Length)
         {
@@ -137,7 +138,12 @@ public sealed class DialogueUI
                 visibleCharacters++;
             }
 
-            targetText.text = fullText.Substring(0, visibleCharacters);
+            if (visibleCharacters != lastVisibleCharacters)
+            {
+                targetText.text = fullText.Substring(0, visibleCharacters);
+                lastVisibleCharacters = visibleCharacters;
+            }
+
             yield return null;
         }
     }

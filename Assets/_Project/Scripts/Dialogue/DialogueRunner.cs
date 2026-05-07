@@ -17,6 +17,8 @@ public sealed class DialogueRunner : MonoBehaviour
     private Camera targetCamera;
     private SpriteRenderer backgroundRenderer;
     private DialogueUI dialogueUI;
+    private WaitForSeconds cachedLineDelay;
+    private float cachedLineDelaySeconds = -1f;
     private readonly Dictionary<string, SpriteRenderer> characterRenderers = new Dictionary<string, SpriteRenderer>();
 
     private void Start()
@@ -148,7 +150,13 @@ public sealed class DialogueRunner : MonoBehaviour
 
     private WaitForSeconds WaitForLineDelay()
     {
-        return new WaitForSeconds(lineDelaySeconds);
+        if (cachedLineDelay == null || !Mathf.Approximately(cachedLineDelaySeconds, lineDelaySeconds))
+        {
+            cachedLineDelaySeconds = lineDelaySeconds;
+            cachedLineDelay = new WaitForSeconds(lineDelaySeconds);
+        }
+
+        return cachedLineDelay;
     }
 
     private bool WasNextPressed()
