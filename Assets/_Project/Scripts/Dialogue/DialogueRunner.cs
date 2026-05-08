@@ -5,6 +5,7 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
@@ -21,6 +22,8 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
     [SerializeField] private GameObject logPanelRoot;
     [SerializeField] private TMP_Text logText;
     [SerializeField] private ScrollRect logScrollRect;
+    [SerializeField] private DialogueDisplayMode displayMode = DialogueDisplayMode.TextBoxes;
+    [SerializeField, Min(1)] private int screenTextLinesPerPage = 6;
     [SerializeField] private bool playOnStart = true;
     [SerializeField] private bool verboseLogging;
     [SerializeField] private float lineDelaySeconds = 1f;
@@ -45,6 +48,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
     private readonly HashSet<string> visibleCharacterNames = new HashSet<string>();
     private readonly Dictionary<string, SpriteRenderer> characterRenderers = new Dictionary<string, SpriteRenderer>();
     private readonly List<string> logEntries = new List<string>();
+    private readonly List<string> screenTextPageLines = new List<string>();
     private readonly StringBuilder logBuilder = new StringBuilder();
     private bool suppressNextLineLog;
 
@@ -332,6 +336,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         suppressNextLineLog = false;
         visibleCharacterNames.Clear();
         usedOnceChoiceLineNumbers.Clear();
+        screenTextPageLines.Clear();
         logEntries.Clear();
         RefreshLogPanel();
 
@@ -400,7 +405,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
                 ApplyRelationshipChanges(line.RelationshipChanges);
                 ApplyInventoryChanges(line.InventoryChanges);
                 bool hideAfterAdvance = !(i + 1 < node.Elements.Count && node.Elements[i + 1] is DialogueHub);
-                yield return dialogueUI.ShowLine(line, typewriterCharactersPerSecond, WasNextPressed, hideAfterAdvance);
+                yield return ShowDialogueLine(line, hideAfterAdvance);
                 retainedLineBeforeChoices = hideAfterAdvance ? null : line;
                 continue;
             }
@@ -409,12 +414,22 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
             {
                 HandleCommand(command);
                 retainedLineBeforeChoices = null;
-                yield return WaitForLineDelay();
+                if (command.CommandType != DialogueCommandType.StartNextPage)
+                {
+                    yield return WaitForLineDelay();
+                }
+
                 continue;
             }
 
             if (element is DialogueHub hub)
             {
+                if (displayMode == DialogueDisplayMode.ScreenText)
+                {
+                    retainedLineBeforeChoices = null;
+                    continue;
+                }
+
                 yield return PlayHub(hub);
 
                 if (stopAfterHub)
@@ -484,9 +499,29 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         LogVerbose($"{selectedChoice.SpeakerName}: {selectedChoice.SelectedText}");
         DialogueLine selectedLine = new DialogueLine(selectedChoice.LineNumber, selectedChoice.SpeakerName, selectedChoice.SelectedText);
         AddLogEntry(selectedLine);
-        yield return dialogueUI.ShowLine(selectedLine, typewriterCharactersPerSecond, WasNextPressed);
+        yield return ShowDialogueLine(selectedLine, true);
         retainedLineBeforeChoices = null;
         yield return PlayNode(selectedChoice.ConsequenceNode, 0, true);
+    }
+
+    private IEnumerator ShowDialogueLine(DialogueLine line, bool hideAfterAdvance)
+    {
+        if (displayMode == DialogueDisplayMode.ScreenText)
+        {
+            int maxLinesPerPage = Mathf.Max(1, screenTextLinesPerPage);
+            if (screenTextPageLines.Count >= maxLinesPerPage)
+            {
+                StartNextScreenTextPage();
+            }
+
+            string previousPageText = BuildScreenTextPage();
+            string newLineText = $"\"{line.Text}\"";
+            yield return dialogueUI.ShowScreenLine(previousPageText, newLineText, typewriterCharactersPerSecond, WasNextPressed);
+            screenTextPageLines.Add(newLineText);
+            yield break;
+        }
+
+        yield return dialogueUI.ShowLine(line, typewriterCharactersPerSecond, WasNextPressed, hideAfterAdvance);
     }
 
     private void ToggleLogPanel()
@@ -793,7 +828,55 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
             case DialogueCommandType.HideBackground:
                 HideBackground(command.TargetName);
                 break;
+            case DialogueCommandType.StartScene:
+                StartScene(command.TargetName);
+                break;
+            case DialogueCommandType.StartNextPage:
+                StartNextScreenTextPage();
+                break;
         }
+    }
+
+    private string BuildScreenTextPage()
+    {
+        if (screenTextPageLines.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        logBuilder.Length = 0;
+        for (int i = 0; i < screenTextPageLines.Count; i++)
+        {
+            if (i > 0)
+            {
+                logBuilder.AppendLine();
+                logBuilder.AppendLine();
+            }
+
+            logBuilder.Append(screenTextPageLines[i]);
+        }
+
+        return logBuilder.ToString();
+    }
+
+    private void StartNextScreenTextPage()
+    {
+        screenTextPageLines.Clear();
+        if (dialogueUI != null)
+        {
+            dialogueUI.ClearScreenTextPage();
+        }
+    }
+
+    private void StartScene(string sceneName)
+    {
+        if (string.IsNullOrWhiteSpace(sceneName))
+        {
+            Debug.LogError("startScene command needs a scene name.");
+            return;
+        }
+
+        SceneManager.LoadScene(sceneName);
     }
 
     private WaitForSeconds WaitForLineDelay()

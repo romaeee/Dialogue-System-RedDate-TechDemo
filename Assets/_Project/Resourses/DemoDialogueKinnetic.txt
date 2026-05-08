@@ -1,0 +1,35 @@
+showBackground: Room
+showCharacter: Anna
+
+Narrator: The room is quiet enough to hear the rain against the window.
+Anna: You finally came.
+Player: I said I would.
+Anna: People say many things when the night is still young.
+Narrator: She smiles, but the smile does not reach her eyes.
+startNextPage
+
+Anna: I left a microphone on the table.
+Player: For me?
+Anna: For the truth, if you can carry it. [get microphone]
+Narrator: You take the microphone and feel its weight in your hand.
+Anna: Good. Maybe I can trust you with one small thing. [relationship trust Anna +1]
+Narrator: Anna turns toward the door before you can answer.
+startNextPage
+
+Narrator: In Screen Text mode, choice hubs are skipped, so the story keeps flowing like a kinetic novel.
+Anna: If this were Text Boxes mode, you would have seen choices here.
+Player: So this version is for straight reading.
+Anna: Exactly.
+startNextPage
+
+hideCharacter: Anna
+showCharacter: May
+
+May: Anna gave you the microphone, didn't she?
+Player: She did.
+May: Then she trusts you more than she wants to admit. [if got microphone]
+May: Keep it safe. We will need it before sunrise. [if trust Anna > 0]
+Narrator: The rain grows louder, and the room feels smaller than before.
+
+hideCharacter: May
+hideBackground: Room

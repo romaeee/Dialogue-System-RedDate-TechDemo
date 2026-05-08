@@ -182,7 +182,15 @@ public static class DialogueParser
 
         if (separatorIndex < 0)
         {
-            return false;
+            string standaloneCommandName = text.Trim();
+            if (!TryGetCommandType(standaloneCommandName, out DialogueCommandType standaloneCommandType) ||
+                !CommandAllowsEmptyTarget(standaloneCommandType))
+            {
+                return false;
+            }
+
+            command = new DialogueCommand(lineNumber, standaloneCommandType, string.Empty);
+            return true;
         }
 
         string commandName = text.Substring(0, separatorIndex).Trim();
@@ -193,13 +201,18 @@ public static class DialogueParser
             return false;
         }
 
-        if (string.IsNullOrWhiteSpace(targetName))
+        if (string.IsNullOrWhiteSpace(targetName) && !CommandAllowsEmptyTarget(commandType))
         {
             throw new DialogueParseException(lineNumber, $"Command \"{commandName}\" needs a target name.");
         }
 
         command = new DialogueCommand(lineNumber, commandType, targetName);
         return true;
+    }
+
+    private static bool CommandAllowsEmptyTarget(DialogueCommandType commandType)
+    {
+        return commandType == DialogueCommandType.StartNextPage;
     }
 
     private static bool TryGetCommandType(string commandName, out DialogueCommandType commandType)
@@ -218,6 +231,14 @@ public static class DialogueParser
                 return true;
             case "hideBackground":
                 commandType = DialogueCommandType.HideBackground;
+                return true;
+            case "startScene":
+            case "start scene":
+                commandType = DialogueCommandType.StartScene;
+                return true;
+            case "startNextPage":
+            case "start next page":
+                commandType = DialogueCommandType.StartNextPage;
                 return true;
             default:
                 commandType = default;

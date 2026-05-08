@@ -1,43 +1,58 @@
 showBackground: Room
 showCharacter: Anna
 
+Narrator: Round one begins. Two minutes with Anna, cover name Velvet, actual job unknown.
 Anna: You're late.
-Player: I had no choice.
-Anna: You always say that.
+Player: The invitation said mysterious rooftop bar, not abandoned safehouse.
+Anna: Good. You can read a room.
 
-Hub A
-Player: Sorry. (Sorry.) [once]
-	Anna: Hm. Fine. [relationship trust Anna +1] [get microphone]
-	Hub A1
-	Player: Option 1. (How are you!)
-		Anna: I'm good!
-	Player: Option 2. (Sorry, again!)
-		Anna: It's no problem.
-	Back. [back Hub A]
-Player: *Leave.* (Goodbye.)
-	Anna: rs is good test [if trust Anna > 0]
-	Anna: blah blah.
-Player: Test rs (RS is good!) [if trust Anna > 0]
-	Anna: Good
+Hub AnnaIntro
+Player: Apologize smoothly. (Sorry. I got held up by surveillance.) [once]
+	Anna: Surveillance? Cute answer. Maybe even true. [relationship trust Anna +1]
+	Anna: Take this microphone. If you hear static, smile and leave. [get microphone]
+	Hub AnnaFollowUp
+	Player: Compliment her tradecraft. (You planned this well.)
+		Anna: Planning is easy. Trusting someone at the table is harder. [relationship trust Anna +1]
+	Player: Ask about the mission. (Who are we listening for?)
+		Anna: The woman at the next table. May. She flirts like a weapon.
+	Back to first questions. [back Hub Anna Intro]
+Player: Tease her. (I thought spies liked dramatic entrances.)
+	Anna: We like punctual ones more.
+Player: Leave the date. (*Leave.*)
+	Anna: Running already? That tells me plenty.
 
-Narrator: Time is up!
+Anna: Time is almost up.
+Anna: Keep the microphone. You earned a little trust tonight. [if trust Anna > 0]
+Anna: I would have given you a tool, but you played this too cold. [if trust Anna == 0]
 hideCharacter: Anna
 
 showCharacter: May
-May: Hello!
-Player: Hi! How are you?
-May: Do you have microphone?
-Hub B
-Player: Yes. (Yes.) [if got microphone]
-	May: 1
-Player: No *lie*. (No.) [if got microphone]
-	May: 2
-Player: Yes *lie*. (Yes.) [if no microphone]
-	May: 3
-Player: No. (No.) [if no microphone]
-	May: 4
 
+Narrator: Round two. May arrives with a smile bright enough to hide a lockpick.
+May: So you're Anna's mysterious date.
+Player: I prefer charming liability.
+May: Honest. Dangerous. I like one of those.
 
+Hub MayDate
+Player: Show confidence. (I can handle danger.)
+	May: Everyone says that before the laser grid.
+	Hub MayDateSub1
+	Player: I brought equipment. (Anna gave me this microphone.) [if got microphone]
+		May: Then she trusts you. Interesting. Let us test that. [relationship trust May +1]
+	Player: Admit the truth. (I have no equipment.) [if no microphone]
+		May: Then your survival plan is mostly cheekbones and luck.
+Player: Ask about Anna. (Do you trust Anna?)
+	May: Trust? No. Respect? Absolutely.
+	Hub MayDateSub1
+	Player: She trusted me a little. (She gave me a chance.) [if trust Anna > 0]
+		May: Then don't waste it. Anna rarely opens a door twice.
+Player: Try a bold flirt. (Is this still a date?)
+	May: It becomes one if you survive dessert.
 
+May: The bell rings. Three minutes gone.
+May: Keep the microphone hidden. Someone here is listening back. [if got microphone]
+May: Next time, bring something more useful than confidence. [if no microphone]
+
+Narrator: Speed dating is over. Spy dating has just started.
 hideCharacter: May
 hideBackground: Room

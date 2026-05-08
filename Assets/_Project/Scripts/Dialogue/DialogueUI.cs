@@ -12,9 +12,11 @@ public sealed class DialogueUI
     private readonly GameObject leftPanel;
     private readonly GameObject rightPanel;
     private readonly GameObject centerPanel;
+    private readonly GameObject screenTextPanel;
     private readonly Text leftText;
     private readonly Text rightText;
     private readonly Text centerText;
+    private readonly Text screenText;
     private readonly RectTransform choicesRoot;
     private readonly List<Button> choiceButtons = new List<Button>();
 
@@ -42,6 +44,7 @@ public sealed class DialogueUI
         leftPanel = CreateDialoguePanel("Character Phrase", rootObject.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(48f, 0f), out leftText, font);
         rightPanel = CreateDialoguePanel("Player Phrase", rootObject.transform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-48f, 0f), out rightText, font);
         centerPanel = CreateDialoguePanel("Narrator Phrase", rootObject.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 72f), out centerText, font);
+        screenTextPanel = CreateScreenTextPanel(rootObject.transform, out screenText, font);
 
         GameObject choicesObject = new GameObject("Choices");
         choicesObject.transform.SetParent(rootObject.transform, false);
@@ -94,6 +97,38 @@ public sealed class DialogueUI
         }
     }
 
+    public IEnumerator ShowScreenLine(
+        string previousPageText,
+        string newLineText,
+        float charactersPerSecond,
+        Func<bool> wasNextPressed)
+    {
+        HideChoices();
+        screenTextPanel.SetActive(true);
+
+        string separator = string.IsNullOrEmpty(previousPageText) ? string.Empty : "\n\n";
+        string prefixText = previousPageText + separator;
+        string fullText = prefixText + newLineText;
+        screenText.text = prefixText;
+
+        if (charactersPerSecond <= 0f)
+        {
+            screenText.text = fullText;
+        }
+        else
+        {
+            yield return TypeLine(screenText, fullText, charactersPerSecond, wasNextPressed, prefixText.Length);
+        }
+
+        yield return WaitForNextPress(wasNextPressed);
+    }
+
+    public void ClearScreenTextPage()
+    {
+        screenText.text = string.Empty;
+        screenTextPanel.SetActive(false);
+    }
+
     public void ShowChoices(IReadOnlyList<DialogueChoice> choices)
     {
         selectedChoiceIndex = -1;
@@ -138,11 +173,16 @@ public sealed class DialogueUI
         HideAll();
     }
 
-    private static IEnumerator TypeLine(Text targetText, string fullText, float charactersPerSecond, Func<bool> wasNextPressed)
+    private static IEnumerator TypeLine(
+        Text targetText,
+        string fullText,
+        float charactersPerSecond,
+        Func<bool> wasNextPressed,
+        int startVisibleCharacters = 0)
     {
         float secondsPerCharacter = 1f / charactersPerSecond;
         float timer = 0f;
-        int visibleCharacters = 0;
+        int visibleCharacters = Mathf.Clamp(startVisibleCharacters, 0, fullText.Length);
         int lastVisibleCharacters = -1;
 
         while (visibleCharacters < fullText.Length)
@@ -196,6 +236,7 @@ public sealed class DialogueUI
         leftPanel.SetActive(activeText == leftText);
         rightPanel.SetActive(activeText == rightText);
         centerPanel.SetActive(activeText == centerText);
+        screenTextPanel.SetActive(false);
     }
 
     private void HideAll()
@@ -209,6 +250,7 @@ public sealed class DialogueUI
         leftPanel.SetActive(false);
         rightPanel.SetActive(false);
         centerPanel.SetActive(false);
+        screenTextPanel.SetActive(false);
     }
 
     private void ClearChoices()
@@ -299,6 +341,44 @@ public sealed class DialogueUI
         textTransform.offsetMax = new Vector2(-28f, -20f);
 
         return panel;
+    }
+
+    private static GameObject CreateScreenTextPanel(Transform parent, out Text text, Font font)
+    {
+        GameObject panel = new GameObject("Screen Text");
+        panel.transform.SetParent(parent, false);
+
+        RectTransform panelTransform = panel.AddComponent<RectTransform>();
+        panelTransform.anchorMin = Vector2.zero;
+        panelTransform.anchorMax = Vector2.one;
+        panelTransform.offsetMin = Vector2.zero;
+        panelTransform.offsetMax = Vector2.zero;
+
+        GameObject textObject = new GameObject("Text");
+        textObject.transform.SetParent(panel.transform, false);
+        text = textObject.AddComponent<Text>();
+        ConfigureScreenText(text, font, Color.white);
+        Shadow shadow = textObject.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.9f);
+        shadow.effectDistance = new Vector2(3f, -3f);
+        RectTransform textTransform = text.GetComponent<RectTransform>();
+        textTransform.anchorMin = new Vector2(0f, 0.55f);
+        textTransform.anchorMax = new Vector2(1f, 1f);
+        textTransform.offsetMin = new Vector2(68f, -4f);
+        textTransform.offsetMax = new Vector2(-76f, -54f);
+
+        return panel;
+    }
+
+    private static void ConfigureScreenText(Text text, Font font, Color color)
+    {
+        text.font = font;
+        text.fontSize = 54;
+        text.color = color;
+        text.alignment = TextAnchor.UpperLeft;
+        text.horizontalOverflow = HorizontalWrapMode.Wrap;
+        text.verticalOverflow = VerticalWrapMode.Truncate;
+        text.lineSpacing = 1.05f;
     }
 
     private static Font GetBuiltinFont()

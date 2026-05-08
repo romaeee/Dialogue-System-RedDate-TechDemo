@@ -2256,6 +2256,8 @@ MonoBehaviour:
   logPanelRoot: {fileID: 595401323}
   logText: {fileID: 531934920}
   logScrollRect: {fileID: 1107001279}
+  displayMode: 0
+  screenTextLinesPerPage: 6
   playOnStart: 1
   verboseLogging: 0
   lineDelaySeconds: 1
