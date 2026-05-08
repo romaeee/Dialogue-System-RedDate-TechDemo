@@ -26,8 +26,9 @@ public sealed class RelationshipBarView : MonoBehaviour
         if (fillImage != null)
         {
             RectTransform fillTransform = fillImage.GetComponent<RectTransform>();
+            float normalizedValue = Mathf.Clamp01(GetNormalizedValue(value, minValue, maxValue));
             fillTransform.anchorMin = Vector2.zero;
-            fillTransform.anchorMax = new Vector2(GetNormalizedValue(value, minValue, maxValue), 1f);
+            fillTransform.anchorMax = new Vector2(normalizedValue, 1f);
             fillTransform.offsetMin = Vector2.zero;
             fillTransform.offsetMax = Vector2.zero;
         }
@@ -35,12 +36,12 @@ public sealed class RelationshipBarView : MonoBehaviour
 
     private static float GetNormalizedValue(int value, int minValue, int maxValue)
     {
-        if (maxValue <= minValue)
+        if (maxValue <= 0)
         {
             return 0f;
         }
 
-        return Mathf.InverseLerp(minValue, maxValue, value);
+        return Mathf.InverseLerp(Mathf.Max(0, minValue), maxValue, Mathf.Max(0, value));
     }
 
     private void EnsureFont(Text text)

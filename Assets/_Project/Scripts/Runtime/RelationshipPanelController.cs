@@ -10,7 +10,7 @@ public sealed class RelationshipPanelController : MonoBehaviour
     [SerializeField] private RelationshipTypeDatabase relationshipTypeDatabase;
     [SerializeField] private RelationshipCardView relationshipCardPrefab;
     [SerializeField] private RelationshipBarView relationshipBarPrefab;
-    [SerializeField] private int minRelationshipValue = -10;
+    [SerializeField] private int minRelationshipValue = 0;
     [SerializeField] private int maxRelationshipValue = 10;
 
     private Font font;

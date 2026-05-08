@@ -87,10 +87,9 @@ public sealed class DialogueUI
             yield return TypeLine(activeText, fullText, charactersPerSecond, wasNextPressed);
         }
 
-        yield return WaitForNextPress(wasNextPressed);
-
         if (hideAfterAdvance)
         {
+            yield return WaitForNextPress(wasNextPressed);
             HideAllPanels();
         }
     }

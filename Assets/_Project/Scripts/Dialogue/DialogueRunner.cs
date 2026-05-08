@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
@@ -101,14 +102,15 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
 
     public DialogueSaveData CaptureState()
     {
+        DialogueLine retainedLine = GetRetainedLineForSave();
         DialogueSaveData state = new DialogueSaveData
         {
             nodeName = currentNodeName,
             elementIndex = currentElementIndex,
             activeHubName = currentHubName,
-            hasRetainedLine = retainedLineBeforeChoices != null,
-            retainedLineSpeakerName = retainedLineBeforeChoices != null ? retainedLineBeforeChoices.SpeakerName : null,
-            retainedLineText = retainedLineBeforeChoices != null ? retainedLineBeforeChoices.Text : null,
+            hasRetainedLine = retainedLine != null,
+            retainedLineSpeakerName = retainedLine != null ? retainedLine.SpeakerName : null,
+            retainedLineText = retainedLine != null ? retainedLine.Text : null,
             currentBackgroundName = currentBackgroundName,
             visibleCharacterNames = new List<string>(visibleCharacterNames),
             usedOnceChoiceLineNumbers = new List<int>(usedOnceChoiceLineNumbers),
@@ -170,6 +172,11 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
                 0,
                 state.retainedLineSpeakerName,
                 state.retainedLineText);
+            dialogueUI.ShowStaticLine(retainedLineBeforeChoices);
+        }
+        else if (!string.IsNullOrWhiteSpace(state.activeHubName) && TryGetLineBeforeElement(node, startIndex, out DialogueLine lineBeforeHub))
+        {
+            retainedLineBeforeChoices = lineBeforeHub;
             dialogueUI.ShowStaticLine(retainedLineBeforeChoices);
         }
         else if (startIndex < node.Elements.Count && node.Elements[startIndex] is DialogueLine)
@@ -516,6 +523,49 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         RefreshLogPanel();
     }
 
+    private DialogueLine GetRetainedLineForSave()
+    {
+        if (retainedLineBeforeChoices != null)
+        {
+            return retainedLineBeforeChoices;
+        }
+
+        if (string.IsNullOrWhiteSpace(currentHubName) ||
+            !nodesByName.TryGetValue(currentNodeName, out DialogueNode node) ||
+            !TryGetLineBeforeElement(node, currentElementIndex, out DialogueLine lineBeforeHub))
+        {
+            return null;
+        }
+
+        return lineBeforeHub;
+    }
+
+    private static bool TryGetLineBeforeElement(DialogueNode node, int elementIndex, out DialogueLine line)
+    {
+        line = null;
+
+        if (node == null)
+        {
+            return false;
+        }
+
+        for (int i = Mathf.Min(elementIndex - 1, node.Elements.Count - 1); i >= 0; i--)
+        {
+            if (node.Elements[i] is DialogueLine previousLine)
+            {
+                line = previousLine;
+                return true;
+            }
+
+            if (node.Elements[i] is DialogueHub || node.Elements[i] is DialogueCommand)
+            {
+                return false;
+            }
+        }
+
+        return false;
+    }
+
     private void AddLogEntry(string entry)
     {
         if (string.IsNullOrWhiteSpace(entry))
@@ -759,7 +809,19 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
 
     private bool WasNextPressed()
     {
-        return Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame;
+        if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame)
+        {
+            return true;
+        }
+
+        return Mouse.current != null &&
+            Mouse.current.leftButton.wasPressedThisFrame &&
+            !IsPointerOverUi();
+    }
+
+    private static bool IsPointerOverUi()
+    {
+        return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
     }
 
     private int GetPressedChoiceIndex(int choiceCount)
