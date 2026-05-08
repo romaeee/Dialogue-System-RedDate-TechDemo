@@ -1,5 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Text;
+using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -14,6 +16,10 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
     [SerializeField] private Button saveButton;
     [SerializeField] private Button loadButton;
     [SerializeField] private Button restoreButton;
+    [SerializeField] private Button logButton;
+    [SerializeField] private GameObject logPanelRoot;
+    [SerializeField] private TMP_Text logText;
+    [SerializeField] private ScrollRect logScrollRect;
     [SerializeField] private bool playOnStart = true;
     [SerializeField] private bool verboseLogging;
     [SerializeField] private float lineDelaySeconds = 1f;
@@ -37,6 +43,9 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
     private readonly HashSet<int> usedOnceChoiceLineNumbers = new HashSet<int>();
     private readonly HashSet<string> visibleCharacterNames = new HashSet<string>();
     private readonly Dictionary<string, SpriteRenderer> characterRenderers = new Dictionary<string, SpriteRenderer>();
+    private readonly List<string> logEntries = new List<string>();
+    private readonly StringBuilder logBuilder = new StringBuilder();
+    private bool suppressNextLineLog;
 
     private void Start()
     {
@@ -63,6 +72,11 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         if (restoreButton != null)
         {
             restoreButton.onClick.RemoveListener(OnRestoreButtonClicked);
+        }
+
+        if (logButton != null)
+        {
+            logButton.onClick.RemoveListener(ToggleLogPanel);
         }
     }
 
@@ -97,7 +111,8 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
             retainedLineText = retainedLineBeforeChoices != null ? retainedLineBeforeChoices.Text : null,
             currentBackgroundName = currentBackgroundName,
             visibleCharacterNames = new List<string>(visibleCharacterNames),
-            usedOnceChoiceLineNumbers = new List<int>(usedOnceChoiceLineNumbers)
+            usedOnceChoiceLineNumbers = new List<int>(usedOnceChoiceLineNumbers),
+            logEntries = new List<string>(logEntries)
         };
 
         return state;
@@ -113,6 +128,14 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
 
         DialogueGraph graph = BuildGraph();
         ResetRuntimeState();
+
+        logEntries.Clear();
+        if (state.logEntries != null)
+        {
+            logEntries.AddRange(state.logEntries);
+        }
+
+        RefreshLogPanel();
 
         for (int i = 0; i < state.usedOnceChoiceLineNumbers.Count; i++)
         {
@@ -148,6 +171,10 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
                 state.retainedLineSpeakerName,
                 state.retainedLineText);
             dialogueUI.ShowStaticLine(retainedLineBeforeChoices);
+        }
+        else if (startIndex < node.Elements.Count && node.Elements[startIndex] is DialogueLine)
+        {
+            suppressNextLineLog = true;
         }
 
         playRoutine = StartCoroutine(PlayRestoredPosition(node, startIndex, state.activeHubName));
@@ -220,6 +247,21 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         {
             Debug.LogWarning("DialogueRunner restore button is not assigned.");
         }
+
+        if (logButton != null)
+        {
+            logButton.onClick.RemoveListener(ToggleLogPanel);
+            logButton.onClick.AddListener(ToggleLogPanel);
+        }
+        else
+        {
+            Debug.LogWarning("DialogueRunner log button is not assigned.");
+        }
+
+        if (logPanelRoot != null)
+        {
+            logPanelRoot.SetActive(false);
+        }
     }
 
     private async System.Threading.Tasks.Task LoadAsync()
@@ -280,8 +322,11 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         currentBackgroundName = null;
         currentHubName = null;
         retainedLineBeforeChoices = null;
+        suppressNextLineLog = false;
         visibleCharacterNames.Clear();
         usedOnceChoiceLineNumbers.Clear();
+        logEntries.Clear();
+        RefreshLogPanel();
 
         if (backgroundRenderer != null)
         {
@@ -344,6 +389,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
                 }
 
                 LogVerbose($"{line.SpeakerName}: {line.Text}");
+                AddLogEntry(line);
                 ApplyRelationshipChanges(line.RelationshipChanges);
                 ApplyInventoryChanges(line.InventoryChanges);
                 bool hideAfterAdvance = !(i + 1 < node.Elements.Count && node.Elements[i + 1] is DialogueHub);
@@ -429,12 +475,84 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         }
 
         LogVerbose($"{selectedChoice.SpeakerName}: {selectedChoice.SelectedText}");
-        yield return dialogueUI.ShowLine(
-            new DialogueLine(selectedChoice.LineNumber, selectedChoice.SpeakerName, selectedChoice.SelectedText),
-            typewriterCharactersPerSecond,
-            WasNextPressed);
+        DialogueLine selectedLine = new DialogueLine(selectedChoice.LineNumber, selectedChoice.SpeakerName, selectedChoice.SelectedText);
+        AddLogEntry(selectedLine);
+        yield return dialogueUI.ShowLine(selectedLine, typewriterCharactersPerSecond, WasNextPressed);
         retainedLineBeforeChoices = null;
         yield return PlayNode(selectedChoice.ConsequenceNode, 0, true);
+    }
+
+    private void ToggleLogPanel()
+    {
+        if (logPanelRoot == null)
+        {
+            Debug.LogWarning("DialogueRunner log panel root is not assigned.");
+            return;
+        }
+
+        bool shouldShow = !logPanelRoot.activeSelf;
+        logPanelRoot.SetActive(shouldShow);
+
+        if (shouldShow)
+        {
+            RefreshLogPanel();
+        }
+    }
+
+    private void AddLogEntry(DialogueLine line)
+    {
+        if (line == null)
+        {
+            return;
+        }
+
+        if (suppressNextLineLog)
+        {
+            suppressNextLineLog = false;
+            return;
+        }
+
+        logEntries.Add($"{line.SpeakerName}: {line.Text}");
+        RefreshLogPanel();
+    }
+
+    private void AddLogEntry(string entry)
+    {
+        if (string.IsNullOrWhiteSpace(entry))
+        {
+            return;
+        }
+
+        logEntries.Add(entry);
+        RefreshLogPanel();
+    }
+
+    private void RefreshLogPanel()
+    {
+        if (logText == null)
+        {
+            return;
+        }
+
+        logBuilder.Length = 0;
+        for (int i = 0; i < logEntries.Count; i++)
+        {
+            if (i > 0)
+            {
+                logBuilder.AppendLine();
+                logBuilder.AppendLine();
+            }
+
+            logBuilder.Append(logEntries[i]);
+        }
+
+        logText.text = logBuilder.ToString();
+
+        if (logScrollRect != null)
+        {
+            Canvas.ForceUpdateCanvases();
+            logScrollRect.verticalNormalizedPosition = 0f;
+        }
     }
 
     private IEnumerator PlayRestoredPosition(DialogueNode node, int startIndex, string activeHubName)
@@ -482,7 +600,9 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
 
         for (int i = 0; i < inventoryChanges.Count; i++)
         {
-            playerController.ApplyInventoryChange(inventoryChanges[i]);
+            InventoryChange inventoryChange = inventoryChanges[i];
+            playerController.ApplyInventoryChange(inventoryChange);
+            AddLogEntry(inventoryChange.ShouldAdd ? $"Got item: {inventoryChange.ItemName}" : $"Lost item: {inventoryChange.ItemName}");
         }
     }
 

@@ -13,4 +13,5 @@ public sealed class DialogueSaveData
     public string currentBackgroundName;
     public List<string> visibleCharacterNames = new List<string>();
     public List<int> usedOnceChoiceLineNumbers = new List<int>();
+    public List<string> logEntries = new List<string>();
 }
