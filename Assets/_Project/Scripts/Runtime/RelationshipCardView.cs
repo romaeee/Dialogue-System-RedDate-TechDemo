@@ -28,8 +28,9 @@ public sealed class RelationshipCardView : MonoBehaviour
 
         if (portraitImage != null)
         {
-            portraitImage.sprite = character.Image;
-            portraitImage.color = character.Image != null ? Color.white : new Color(1f, 1f, 1f, 0.2f);
+            Sprite portrait = character.RelationshipPortrait;
+            portraitImage.sprite = portrait;
+            portraitImage.color = portrait != null ? Color.white : new Color(1f, 1f, 1f, 0.2f);
             portraitImage.preserveAspect = true;
         }
 

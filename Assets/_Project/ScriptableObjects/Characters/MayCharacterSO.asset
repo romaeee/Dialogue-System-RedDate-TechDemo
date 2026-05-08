@@ -14,3 +14,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CharacterData
   characterName: May
   image: {fileID: -855298285791758126, guid: 1fbd726e3f0224a3e9d6be2fe2486758, type: 3}
+  portrait: {fileID: 0}

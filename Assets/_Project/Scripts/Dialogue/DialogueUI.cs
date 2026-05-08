@@ -10,19 +10,21 @@ using UnityEngine.UI;
 public sealed class DialogueUI
 {
     private readonly GameObject rootObject;
-    private readonly GameObject leftPanel;
-    private readonly GameObject rightPanel;
-    private readonly GameObject centerPanel;
+    private readonly DialogueBoxView leftBox;
+    private readonly DialogueBoxView rightBox;
+    private readonly DialogueBoxView centerBox;
     private readonly ScreenTextView screenTextView;
-    private readonly Text leftText;
-    private readonly Text rightText;
-    private readonly Text centerText;
     private readonly RectTransform choicesRoot;
     private readonly List<Button> choiceButtons = new List<Button>();
 
     private int selectedChoiceIndex = -1;
 
-    public DialogueUI(Transform parent, ScreenTextView screenTextPrefab)
+    public DialogueUI(
+        Transform parent,
+        ScreenTextView screenTextPrefab,
+        DialogueBoxView characterDialogueBoxPrefab,
+        DialogueBoxView playerDialogueBoxPrefab,
+        DialogueBoxView narratorDialogueBoxPrefab)
     {
         EnsureEventSystem();
 
@@ -40,10 +42,30 @@ public sealed class DialogueUI
 
         rootObject.AddComponent<GraphicRaycaster>();
 
-        Font font = GetBuiltinFont();
-        leftPanel = CreateDialoguePanel("Character Phrase", rootObject.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(48f, 0f), out leftText, font);
-        rightPanel = CreateDialoguePanel("Player Phrase", rootObject.transform, new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(1f, 0.5f), new Vector2(-48f, 0f), out rightText, font);
-        centerPanel = CreateDialoguePanel("Narrator Phrase", rootObject.transform, new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0.5f, 0f), new Vector2(0f, 72f), out centerText, font);
+        leftBox = CreateDialogueBox(
+            "Character Phrase",
+            rootObject.transform,
+            characterDialogueBoxPrefab,
+            new Vector2(0f, 0.5f),
+            new Vector2(0f, 0.5f),
+            new Vector2(0f, 0.5f),
+            new Vector2(48f, 0f));
+        rightBox = CreateDialogueBox(
+            "Player Phrase",
+            rootObject.transform,
+            playerDialogueBoxPrefab,
+            new Vector2(1f, 0.5f),
+            new Vector2(1f, 0.5f),
+            new Vector2(1f, 0.5f),
+            new Vector2(-48f, 0f));
+        centerBox = CreateDialogueBox(
+            "Narrator Phrase",
+            rootObject.transform,
+            narratorDialogueBoxPrefab,
+            new Vector2(0f, 0.5f),
+            new Vector2(0f, 0.5f),
+            new Vector2(0f, 0.5f),
+            new Vector2(48f, 0f));
         screenTextView = CreateScreenTextView(rootObject.transform, screenTextPrefab);
 
         GameObject choicesObject = new GameObject("Choices");
@@ -75,19 +97,23 @@ public sealed class DialogueUI
     {
         HideChoices();
 
-        Text activeText = GetTextForSpeaker(line.SpeakerName);
-        ShowOnlyPanel(activeText);
+        DialogueBoxView activeBox = GetBoxForSpeaker(line.SpeakerName);
+        ShowOnlyBox(activeBox);
 
         string fullText = $"{line.SpeakerName}: {line.Text}";
-        activeText.text = string.Empty;
+        activeBox.SetText(string.Empty);
 
         if (charactersPerSecond <= 0f)
         {
-            activeText.text = fullText;
+            activeBox.SetText(fullText);
+        }
+        else if (activeBox.Text != null)
+        {
+            yield return TypeLine(activeBox.Text, fullText, charactersPerSecond, wasNextPressed);
         }
         else
         {
-            yield return TypeLine(activeText, fullText, charactersPerSecond, wasNextPressed);
+            activeBox.SetText(fullText);
         }
 
         if (hideAfterAdvance)
@@ -155,9 +181,9 @@ public sealed class DialogueUI
             return;
         }
 
-        Text activeText = GetTextForSpeaker(line.SpeakerName);
-        ShowOnlyPanel(activeText);
-        activeText.text = $"{line.SpeakerName}: {line.Text}";
+        DialogueBoxView activeBox = GetBoxForSpeaker(line.SpeakerName);
+        ShowOnlyBox(activeBox);
+        activeBox.SetText($"{line.SpeakerName}: {line.Text}");
     }
 
     public void SelectChoice(int choiceIndex)
@@ -175,44 +201,6 @@ public sealed class DialogueUI
     public void Hide()
     {
         HideAll();
-    }
-
-    private static IEnumerator TypeLine(
-        Text targetText,
-        string fullText,
-        float charactersPerSecond,
-        Func<bool> wasNextPressed,
-        int startVisibleCharacters = 0)
-    {
-        float secondsPerCharacter = 1f / charactersPerSecond;
-        float timer = 0f;
-        int visibleCharacters = Mathf.Clamp(startVisibleCharacters, 0, fullText.Length);
-        int lastVisibleCharacters = -1;
-
-        while (visibleCharacters < fullText.Length)
-        {
-            if (wasNextPressed())
-            {
-                targetText.text = fullText;
-                yield return null;
-                yield break;
-            }
-
-            timer += Time.deltaTime;
-            while (timer >= secondsPerCharacter && visibleCharacters < fullText.Length)
-            {
-                timer -= secondsPerCharacter;
-                visibleCharacters++;
-            }
-
-            if (visibleCharacters != lastVisibleCharacters)
-            {
-                targetText.text = fullText.Substring(0, visibleCharacters);
-                lastVisibleCharacters = visibleCharacters;
-            }
-
-            yield return null;
-        }
     }
 
     private static IEnumerator TypeLine(
@@ -263,21 +251,26 @@ public sealed class DialogueUI
         yield return null;
     }
 
-    private Text GetTextForSpeaker(string speakerName)
+    private DialogueBoxView GetBoxForSpeaker(string speakerName)
     {
         if (speakerName == "Player")
         {
-            return rightText;
+            return rightBox;
         }
 
-        return leftText;
+        if (speakerName == "Narrator")
+        {
+            return centerBox;
+        }
+
+        return leftBox;
     }
 
-    private void ShowOnlyPanel(Text activeText)
+    private void ShowOnlyBox(DialogueBoxView activeBox)
     {
-        leftPanel.SetActive(activeText == leftText);
-        rightPanel.SetActive(activeText == rightText);
-        centerPanel.SetActive(activeText == centerText);
+        leftBox.gameObject.SetActive(activeBox == leftBox);
+        rightBox.gameObject.SetActive(activeBox == rightBox);
+        centerBox.gameObject.SetActive(activeBox == centerBox);
         screenTextView.Hide();
     }
 
@@ -289,9 +282,9 @@ public sealed class DialogueUI
 
     private void HideAllPanels()
     {
-        leftPanel.SetActive(false);
-        rightPanel.SetActive(false);
-        centerPanel.SetActive(false);
+        leftBox.Hide();
+        rightBox.Hide();
+        centerBox.Hide();
         screenTextView.Hide();
     }
 
@@ -343,24 +336,37 @@ public sealed class DialogueUI
         return button;
     }
 
-    private static GameObject CreateDialoguePanel(
+    private static DialogueBoxView CreateDialogueBox(
         string name,
         Transform parent,
+        DialogueBoxView prefab,
         Vector2 anchorMin,
         Vector2 anchorMax,
         Vector2 pivot,
-        Vector2 anchoredPosition,
-        out Text text,
-        Font font)
+        Vector2 anchoredPosition)
     {
-        GameObject panel = new GameObject(name);
+        DialogueBoxView view = prefab != null ?
+            UnityEngine.Object.Instantiate(prefab, parent, false) :
+            CreateGeneratedDialogueBox(parent);
+
+        view.name = name;
+        view.AutoBind();
+        ConfigureDialogueBoxTransform(view.GetComponent<RectTransform>(), anchorMin, anchorMax, pivot, anchoredPosition);
+
+        if (view.Text == null)
+        {
+            Debug.LogError($"Dialogue box prefab \"{name}\" needs a TMP_Text component assigned on DialogueBoxView.");
+        }
+
+        return view;
+    }
+
+    private static DialogueBoxView CreateGeneratedDialogueBox(Transform parent)
+    {
+        GameObject panel = new GameObject("Dialogue Box");
         panel.transform.SetParent(parent, false);
 
         RectTransform panelTransform = panel.AddComponent<RectTransform>();
-        panelTransform.anchorMin = anchorMin;
-        panelTransform.anchorMax = anchorMax;
-        panelTransform.pivot = pivot;
-        panelTransform.anchoredPosition = anchoredPosition;
         panelTransform.sizeDelta = new Vector2(560f, 180f);
 
         Image image = panel.AddComponent<Image>();
@@ -368,13 +374,8 @@ public sealed class DialogueUI
 
         GameObject textObject = new GameObject("Text");
         textObject.transform.SetParent(panel.transform, false);
-        text = textObject.AddComponent<Text>();
-        text.font = font;
-        text.fontSize = 34;
-        text.color = Color.white;
-        text.alignment = TextAnchor.MiddleLeft;
-        text.horizontalOverflow = HorizontalWrapMode.Wrap;
-        text.verticalOverflow = VerticalWrapMode.Truncate;
+        TMP_Text text = textObject.AddComponent<TextMeshProUGUI>();
+        ConfigureDialogueBoxText(text);
 
         RectTransform textTransform = text.GetComponent<RectTransform>();
         textTransform.anchorMin = Vector2.zero;
@@ -382,7 +383,35 @@ public sealed class DialogueUI
         textTransform.offsetMin = new Vector2(28f, 20f);
         textTransform.offsetMax = new Vector2(-28f, -20f);
 
-        return panel;
+        return panel.AddComponent<DialogueBoxView>();
+    }
+
+    private static void ConfigureDialogueBoxTransform(
+        RectTransform rectTransform,
+        Vector2 anchorMin,
+        Vector2 anchorMax,
+        Vector2 pivot,
+        Vector2 anchoredPosition)
+    {
+        if (rectTransform == null)
+        {
+            return;
+        }
+
+        rectTransform.anchorMin = anchorMin;
+        rectTransform.anchorMax = anchorMax;
+        rectTransform.pivot = pivot;
+        rectTransform.anchoredPosition = anchoredPosition;
+        rectTransform.sizeDelta = new Vector2(560f, 180f);
+    }
+
+    private static void ConfigureDialogueBoxText(TMP_Text text)
+    {
+        text.fontSize = 34f;
+        text.color = Color.white;
+        text.alignment = TextAlignmentOptions.MidlineLeft;
+        text.textWrappingMode = TextWrappingModes.Normal;
+        text.overflowMode = TextOverflowModes.Truncate;
     }
 
     private static ScreenTextView CreateScreenTextView(Transform parent, ScreenTextView prefab)
