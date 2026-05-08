@@ -4,6 +4,7 @@ showCharacter: Anna
 Narrator: The room is quiet enough to hear the rain against the window.
 Anna: You finally came.
 Player: I said I would.
+startNextPage
 Anna: People say many things when the night is still young.
 Narrator: She smiles, but the smile does not reach her eyes.
 startNextPage

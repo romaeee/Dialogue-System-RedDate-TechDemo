@@ -24,6 +24,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
     [SerializeField] private ScrollRect logScrollRect;
     [SerializeField] private DialogueDisplayMode displayMode = DialogueDisplayMode.TextBoxes;
     [SerializeField, Min(1)] private int screenTextLinesPerPage = 6;
+    [SerializeField] private ScreenTextView screenTextPrefab;
     [SerializeField] private bool playOnStart = true;
     [SerializeField] private bool verboseLogging;
     [SerializeField] private float lineDelaySeconds = 1f;
@@ -224,7 +225,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
             return;
         }
 
-        dialogueUI = new DialogueUI(transform);
+        dialogueUI = new DialogueUI(transform, screenTextPrefab);
     }
 
     private void BindSceneButtons()
