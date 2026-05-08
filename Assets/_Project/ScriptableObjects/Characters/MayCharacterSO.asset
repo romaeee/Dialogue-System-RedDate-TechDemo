@@ -13,5 +13,9 @@ MonoBehaviour:
   m_Name: MayCharacterSO
   m_EditorClassIdentifier: Assembly-CSharp::CharacterData
   characterName: May
-  image: {fileID: -855298285791758126, guid: 1fbd726e3f0224a3e9d6be2fe2486758, type: 3}
+  emotions:
+  - emotion: 0
+    image: {fileID: -1013260896860561675, guid: 179131081c7d54d7b99c2b69d63a0e63, type: 3}
+  - emotion: 1
+    image: {fileID: 787121695763308787, guid: 9e9b9dcdbbc04439fab0f5fe5b752fff, type: 3}
   portrait: {fileID: 7510013772929561116, guid: 6ce21061d49f84f118df5efb194164de, type: 3}

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
@@ -52,6 +53,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
     private readonly HashSet<int> usedOnceChoiceLineNumbers = new HashSet<int>();
     private readonly HashSet<string> visibleCharacterNames = new HashSet<string>();
     private readonly Dictionary<string, SpriteRenderer> characterRenderers = new Dictionary<string, SpriteRenderer>();
+    private readonly Dictionary<string, CharacterEmotion> currentCharacterEmotions = new Dictionary<string, CharacterEmotion>();
     private readonly List<string> logEntries = new List<string>();
     private readonly List<string> screenTextPageLines = new List<string>();
     private readonly StringBuilder logBuilder = new StringBuilder();
@@ -122,6 +124,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
             retainedLineText = retainedLine != null ? retainedLine.Text : null,
             currentBackgroundName = currentBackgroundName,
             visibleCharacterNames = new List<string>(visibleCharacterNames),
+            characterEmotions = CaptureCharacterEmotionState(),
             usedOnceChoiceLineNumbers = new List<int>(usedOnceChoiceLineNumbers),
             logEntries = new List<string>(logEntries)
         };
@@ -161,6 +164,19 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         for (int i = 0; i < state.visibleCharacterNames.Count; i++)
         {
             ShowCharacter(state.visibleCharacterNames[i]);
+        }
+
+        if (state.characterEmotions != null)
+        {
+            for (int i = 0; i < state.characterEmotions.Count; i++)
+            {
+                CharacterEmotionSaveData emotionState = state.characterEmotions[i];
+                if (emotionState != null &&
+                    Enum.TryParse(emotionState.emotionName, true, out CharacterEmotion emotion))
+                {
+                    ApplyCharacterEmotion(emotionState.characterName, emotion);
+                }
+            }
         }
 
         if (!nodesByName.TryGetValue(state.nodeName, out DialogueNode node))
@@ -345,6 +361,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         retainedLineBeforeChoices = null;
         suppressNextLineLog = false;
         visibleCharacterNames.Clear();
+        currentCharacterEmotions.Clear();
         usedOnceChoiceLineNumbers.Clear();
         screenTextPageLines.Clear();
         logEntries.Clear();
@@ -416,6 +433,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
                 ApplyRelationshipChanges(line.RelationshipChanges);
                 ApplyInventoryChanges(line.InventoryChanges);
                 ApplyVariableChanges(line.VariableChanges);
+                ApplyEmotionChanges(line.EmotionChanges);
                 bool hideAfterAdvance = !(i + 1 < node.Elements.Count && node.Elements[i + 1] is DialogueHub);
                 yield return ShowDialogueLine(line, hideAfterAdvance);
                 retainedLineBeforeChoices = hideAfterAdvance ? null : line;
@@ -491,6 +509,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         ApplyRelationshipChanges(selectedChoice.RelationshipChanges);
         ApplyInventoryChanges(selectedChoice.InventoryChanges);
         ApplyVariableChanges(selectedChoice.VariableChanges);
+        ApplyEmotionChanges(selectedChoice.EmotionChanges);
         dialogueUI.HideChoices();
         retainedLineBeforeChoices = null;
         currentHubName = null;
@@ -829,6 +848,57 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         }
     }
 
+    private void ApplyEmotionChanges(IReadOnlyList<CharacterEmotionChange> emotionChanges)
+    {
+        if (emotionChanges == null || emotionChanges.Count == 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < emotionChanges.Count; i++)
+        {
+            CharacterEmotionChange emotionChange = emotionChanges[i];
+            if (emotionChange != null)
+            {
+                ApplyCharacterEmotion(emotionChange.CharacterName, emotionChange.Emotion);
+            }
+        }
+    }
+
+    private void ApplyCharacterEmotion(string characterName, CharacterEmotion emotion)
+    {
+        if (string.IsNullOrWhiteSpace(characterName))
+        {
+            return;
+        }
+
+        if (!visibleCharacterNames.Contains(characterName))
+        {
+            Debug.LogWarning($"Cannot switch \"{characterName}\" to {emotion}: character is not visible on stage.");
+            return;
+        }
+
+        if (characterDatabase == null)
+        {
+            Debug.LogError("DialogueRunner needs a character database.");
+            return;
+        }
+
+        CharacterData character = characterDatabase.GetByName(characterName);
+        Sprite emotionSprite = character != null ? character.GetEmotionSprite(emotion) : null;
+        if (character == null || emotionSprite == null)
+        {
+            Debug.LogWarning($"Character \"{characterName}\" does not have a sprite for {emotion}.");
+            return;
+        }
+
+        SpriteRenderer renderer = GetOrCreateCharacterRenderer(characterName);
+        renderer.sprite = emotionSprite;
+        renderer.enabled = true;
+        currentCharacterEmotions[characterName] = emotion;
+        LogVerbose($"[Emotion] {characterName}: {emotion}");
+    }
+
     private bool AreVariableConditionsMet(IReadOnlyList<VariableCondition> variableConditions)
     {
         if (variableConditions == null || variableConditions.Count == 0)
@@ -1086,16 +1156,18 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         }
 
         CharacterData character = characterDatabase.GetByName(characterName);
-        if (character == null || character.Image == null)
+        Sprite characterSprite = character != null ? character.GetEmotionSprite(CharacterEmotion.Normal) : null;
+        if (character == null || characterSprite == null)
         {
             Debug.LogError($"Character \"{characterName}\" was not found in the character database.");
             return;
         }
 
         SpriteRenderer renderer = GetOrCreateCharacterRenderer(characterName);
-        renderer.sprite = character.Image;
+        renderer.sprite = characterSprite;
         renderer.enabled = true;
         visibleCharacterNames.Add(characterName);
+        currentCharacterEmotions[characterName] = CharacterEmotion.Normal;
         PlaceCharacterAtBottomCenter(renderer);
         LogVerbose($"[Command] Show character: {characterName}");
     }
@@ -1108,7 +1180,25 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         }
 
         visibleCharacterNames.Remove(characterName);
+        currentCharacterEmotions.Remove(characterName);
         LogVerbose($"[Command] Hide character: {characterName}");
+    }
+
+    private List<CharacterEmotionSaveData> CaptureCharacterEmotionState()
+    {
+        List<CharacterEmotionSaveData> emotionStates = new List<CharacterEmotionSaveData>();
+
+        foreach (string characterName in visibleCharacterNames)
+        {
+            currentCharacterEmotions.TryGetValue(characterName, out CharacterEmotion emotion);
+            emotionStates.Add(new CharacterEmotionSaveData
+            {
+                characterName = characterName,
+                emotionName = emotion.ToString()
+            });
+        }
+
+        return emotionStates;
     }
 
     private SpriteRenderer GetOrCreateBackgroundRenderer()

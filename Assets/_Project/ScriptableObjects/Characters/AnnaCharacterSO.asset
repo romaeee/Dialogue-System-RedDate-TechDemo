@@ -13,5 +13,9 @@ MonoBehaviour:
   m_Name: AnnaCharacterSO
   m_EditorClassIdentifier: Assembly-CSharp::CharacterData
   characterName: Anna
-  image: {fileID: 6937817954938267909, guid: 97551e9280a674950b0c8c26ba292b9a, type: 3}
+  emotions:
+  - emotion: 0
+    image: {fileID: 6354435067271431085, guid: 24018ff1dbb2c4ddfa6f4f6b54c720c0, type: 3}
+  - emotion: 1
+    image: {fileID: -3882956695163288551, guid: c11f1a7ee853341c69eaab988b66a5b2, type: 3}
   portrait: {fileID: 1319450840681627962, guid: ca903576edd78404997ddd4ad6e2a5e2, type: 3}

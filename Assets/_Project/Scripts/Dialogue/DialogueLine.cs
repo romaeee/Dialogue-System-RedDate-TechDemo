@@ -8,6 +8,7 @@ public sealed class DialogueLine : DialogueElement
     private readonly List<InventoryCondition> inventoryConditions;
     private readonly List<VariableChange> variableChanges;
     private readonly List<VariableCondition> variableConditions;
+    private readonly List<CharacterEmotionChange> emotionChanges;
 
     public DialogueLine(
         int lineNumber,
@@ -18,7 +19,8 @@ public sealed class DialogueLine : DialogueElement
         List<InventoryChange> inventoryChanges = null,
         List<InventoryCondition> inventoryConditions = null,
         List<VariableChange> variableChanges = null,
-        List<VariableCondition> variableConditions = null) : base(lineNumber)
+        List<VariableCondition> variableConditions = null,
+        List<CharacterEmotionChange> emotionChanges = null) : base(lineNumber)
     {
         SpeakerName = speakerName;
         Text = text;
@@ -28,6 +30,7 @@ public sealed class DialogueLine : DialogueElement
         this.inventoryConditions = inventoryConditions ?? new List<InventoryCondition>();
         this.variableChanges = variableChanges ?? new List<VariableChange>();
         this.variableConditions = variableConditions ?? new List<VariableCondition>();
+        this.emotionChanges = emotionChanges ?? new List<CharacterEmotionChange>();
     }
 
     public string SpeakerName { get; }
@@ -38,4 +41,5 @@ public sealed class DialogueLine : DialogueElement
     public IReadOnlyList<InventoryCondition> InventoryConditions => inventoryConditions;
     public IReadOnlyList<VariableChange> VariableChanges => variableChanges;
     public IReadOnlyList<VariableCondition> VariableConditions => variableConditions;
+    public IReadOnlyList<CharacterEmotionChange> EmotionChanges => emotionChanges;
 }

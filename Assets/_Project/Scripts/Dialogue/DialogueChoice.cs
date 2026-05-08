@@ -9,6 +9,7 @@ public sealed class DialogueChoice
     private readonly List<InventoryCondition> inventoryConditions;
     private readonly List<VariableChange> variableChanges;
     private readonly List<VariableCondition> variableConditions;
+    private readonly List<CharacterEmotionChange> emotionChanges;
 
     public DialogueChoice(
         int lineNumber,
@@ -23,7 +24,8 @@ public sealed class DialogueChoice
         List<InventoryChange> inventoryChanges = null,
         List<InventoryCondition> inventoryConditions = null,
         List<VariableChange> variableChanges = null,
-        List<VariableCondition> variableConditions = null)
+        List<VariableCondition> variableConditions = null,
+        List<CharacterEmotionChange> emotionChanges = null)
     {
         LineNumber = lineNumber;
         SpeakerName = speakerName;
@@ -38,6 +40,7 @@ public sealed class DialogueChoice
         this.inventoryConditions = inventoryConditions ?? new List<InventoryCondition>();
         this.variableChanges = variableChanges ?? new List<VariableChange>();
         this.variableConditions = variableConditions ?? new List<VariableCondition>();
+        this.emotionChanges = emotionChanges ?? new List<CharacterEmotionChange>();
     }
 
     public int LineNumber { get; }
@@ -54,4 +57,5 @@ public sealed class DialogueChoice
     public IReadOnlyList<InventoryCondition> InventoryConditions => inventoryConditions;
     public IReadOnlyList<VariableChange> VariableChanges => variableChanges;
     public IReadOnlyList<VariableCondition> VariableConditions => variableConditions;
+    public IReadOnlyList<CharacterEmotionChange> EmotionChanges => emotionChanges;
 }

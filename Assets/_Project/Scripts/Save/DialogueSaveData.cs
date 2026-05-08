@@ -12,6 +12,7 @@ public sealed class DialogueSaveData
     public string retainedLineText;
     public string currentBackgroundName;
     public List<string> visibleCharacterNames = new List<string>();
+    public List<CharacterEmotionSaveData> characterEmotions = new List<CharacterEmotionSaveData>();
     public List<int> usedOnceChoiceLineNumbers = new List<int>();
     public List<string> logEntries = new List<string>();
 }

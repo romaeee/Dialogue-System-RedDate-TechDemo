@@ -16,7 +16,7 @@ Player: Apologize smoothly. (Sorry. I got held up by surveillance.) [once]
 	Player: Ask about the mission. (Who are we listening for?)
 		Anna: The woman at the next table. May. She flirts like a weapon.
 	Back to first questions. [back Hub AnnaIntro]
-Player: Tease her. (I thought spies liked dramatic entrances.)
+Player: Tease her. (I thought spies liked dramatic entrances.) [Anna Angry]
 	Anna: We like punctual ones more.
 Player: Leave the date. (*Leave.*)
 	Anna: Running already? That tells me plenty.

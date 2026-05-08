@@ -120,7 +120,8 @@ public static class DialogueParser
                 optionHeader.InventoryChanges,
                 optionHeader.InventoryConditions,
                 optionHeader.VariableChanges,
-                optionHeader.VariableConditions));
+                optionHeader.VariableConditions,
+                optionHeader.EmotionChanges));
         }
 
         if (choices.Count == 0)
@@ -269,7 +270,8 @@ public static class DialogueParser
             out List<InventoryChange> inventoryChanges,
             out List<InventoryCondition> inventoryConditions,
             out List<VariableChange> variableChanges,
-            out List<VariableCondition> variableConditions);
+            out List<VariableCondition> variableConditions,
+            out List<CharacterEmotionChange> emotionChanges);
 
         if (string.IsNullOrWhiteSpace(speakerName) || string.IsNullOrWhiteSpace(dialogueText))
         {
@@ -285,7 +287,8 @@ public static class DialogueParser
             inventoryChanges,
             inventoryConditions,
             variableChanges,
-            variableConditions);
+            variableConditions,
+            emotionChanges);
         return true;
     }
 
@@ -306,7 +309,8 @@ public static class DialogueParser
                 out List<InventoryChange> linkInventoryChanges,
                 out List<InventoryCondition> linkInventoryConditions,
                 out List<VariableChange> linkVariableChanges,
-                out List<VariableCondition> linkVariableConditions);
+                out List<VariableCondition> linkVariableConditions,
+                out List<CharacterEmotionChange> linkEmotionChanges);
 
             if (string.IsNullOrWhiteSpace(linkTargetHubName))
             {
@@ -330,7 +334,8 @@ public static class DialogueParser
                 linkInventoryChanges,
                 linkInventoryConditions,
                 linkVariableChanges,
-                linkVariableConditions);
+                linkVariableConditions,
+                linkEmotionChanges);
             return true;
         }
 
@@ -345,7 +350,8 @@ public static class DialogueParser
             out List<InventoryChange> inventoryChanges,
             out List<InventoryCondition> inventoryConditions,
             out List<VariableChange> variableChanges,
-            out List<VariableCondition> variableConditions);
+            out List<VariableCondition> variableConditions,
+            out List<CharacterEmotionChange> emotionChanges);
 
         int closeIndex = optionText.LastIndexOf(')');
         int openIndex = optionText.LastIndexOf('(');
@@ -377,7 +383,8 @@ public static class DialogueParser
             inventoryChanges,
             inventoryConditions,
             variableChanges,
-            variableConditions);
+            variableConditions,
+            emotionChanges);
         return true;
     }
 
@@ -390,7 +397,8 @@ public static class DialogueParser
         out List<InventoryChange> inventoryChanges,
         out List<InventoryCondition> inventoryConditions,
         out List<VariableChange> variableChanges,
-        out List<VariableCondition> variableConditions)
+        out List<VariableCondition> variableConditions,
+        out List<CharacterEmotionChange> emotionChanges)
     {
         targetHubName = null;
         isOnce = false;
@@ -400,6 +408,7 @@ public static class DialogueParser
         inventoryConditions = new List<InventoryCondition>();
         variableChanges = new List<VariableChange>();
         variableConditions = new List<VariableCondition>();
+        emotionChanges = new List<CharacterEmotionChange>();
 
         while (TryExtractLastTag(ref text, out string tagText))
         {
@@ -457,9 +466,28 @@ public static class DialogueParser
                 continue;
             }
 
+            if (TryReadEmotionChange(tagText, out CharacterEmotionChange emotionChange))
+            {
+                emotionChanges.Add(emotionChange);
+                continue;
+            }
+
             text = $"{text} [{tagText}]".Trim();
             break;
         }
+    }
+
+    private static bool TryReadEmotionChange(string tagText, out CharacterEmotionChange emotionChange)
+    {
+        emotionChange = null;
+        string[] parts = tagText.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 2 || !Enum.TryParse(parts[1], true, out CharacterEmotion emotion))
+        {
+            return false;
+        }
+
+        emotionChange = new CharacterEmotionChange(parts[0], emotion);
+        return true;
     }
 
     private static bool TryReadVariableChange(string tagText, out VariableChange variableChange)
@@ -728,7 +756,8 @@ public static class DialogueParser
             List<InventoryChange> inventoryChanges = null,
             List<InventoryCondition> inventoryConditions = null,
             List<VariableChange> variableChanges = null,
-            List<VariableCondition> variableConditions = null)
+            List<VariableCondition> variableConditions = null,
+            List<CharacterEmotionChange> emotionChanges = null)
         {
             LineNumber = lineNumber;
             SpeakerName = speakerName;
@@ -742,6 +771,7 @@ public static class DialogueParser
             InventoryConditions = inventoryConditions ?? new List<InventoryCondition>();
             VariableChanges = variableChanges ?? new List<VariableChange>();
             VariableConditions = variableConditions ?? new List<VariableCondition>();
+            EmotionChanges = emotionChanges ?? new List<CharacterEmotionChange>();
         }
 
         public int LineNumber { get; }
@@ -756,5 +786,6 @@ public static class DialogueParser
         public List<InventoryCondition> InventoryConditions { get; }
         public List<VariableChange> VariableChanges { get; }
         public List<VariableCondition> VariableConditions { get; }
+        public List<CharacterEmotionChange> EmotionChanges { get; }
     }
 }
