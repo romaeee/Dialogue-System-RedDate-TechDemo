@@ -118,7 +118,9 @@ public static class DialogueParser
                 optionHeader.RelationshipChanges,
                 optionHeader.RelationshipConditions,
                 optionHeader.InventoryChanges,
-                optionHeader.InventoryConditions));
+                optionHeader.InventoryConditions,
+                optionHeader.VariableChanges,
+                optionHeader.VariableConditions));
         }
 
         if (choices.Count == 0)
@@ -265,7 +267,9 @@ public static class DialogueParser
             out List<RelationshipChange> relationshipChanges,
             out List<RelationshipCondition> relationshipConditions,
             out List<InventoryChange> inventoryChanges,
-            out List<InventoryCondition> inventoryConditions);
+            out List<InventoryCondition> inventoryConditions,
+            out List<VariableChange> variableChanges,
+            out List<VariableCondition> variableConditions);
 
         if (string.IsNullOrWhiteSpace(speakerName) || string.IsNullOrWhiteSpace(dialogueText))
         {
@@ -279,7 +283,9 @@ public static class DialogueParser
             relationshipChanges,
             relationshipConditions,
             inventoryChanges,
-            inventoryConditions);
+            inventoryConditions,
+            variableChanges,
+            variableConditions);
         return true;
     }
 
@@ -298,7 +304,9 @@ public static class DialogueParser
                 out List<RelationshipChange> linkRelationshipChanges,
                 out List<RelationshipCondition> linkRelationshipConditions,
                 out List<InventoryChange> linkInventoryChanges,
-                out List<InventoryCondition> linkInventoryConditions);
+                out List<InventoryCondition> linkInventoryConditions,
+                out List<VariableChange> linkVariableChanges,
+                out List<VariableCondition> linkVariableConditions);
 
             if (string.IsNullOrWhiteSpace(linkTargetHubName))
             {
@@ -320,7 +328,9 @@ public static class DialogueParser
                 linkRelationshipChanges,
                 linkRelationshipConditions,
                 linkInventoryChanges,
-                linkInventoryConditions);
+                linkInventoryConditions,
+                linkVariableChanges,
+                linkVariableConditions);
             return true;
         }
 
@@ -333,7 +343,9 @@ public static class DialogueParser
             out List<RelationshipChange> relationshipChanges,
             out List<RelationshipCondition> relationshipConditions,
             out List<InventoryChange> inventoryChanges,
-            out List<InventoryCondition> inventoryConditions);
+            out List<InventoryCondition> inventoryConditions,
+            out List<VariableChange> variableChanges,
+            out List<VariableCondition> variableConditions);
 
         int closeIndex = optionText.LastIndexOf(')');
         int openIndex = optionText.LastIndexOf('(');
@@ -363,7 +375,9 @@ public static class DialogueParser
             relationshipChanges,
             relationshipConditions,
             inventoryChanges,
-            inventoryConditions);
+            inventoryConditions,
+            variableChanges,
+            variableConditions);
         return true;
     }
 
@@ -374,7 +388,9 @@ public static class DialogueParser
         out List<RelationshipChange> relationshipChanges,
         out List<RelationshipCondition> relationshipConditions,
         out List<InventoryChange> inventoryChanges,
-        out List<InventoryCondition> inventoryConditions)
+        out List<InventoryCondition> inventoryConditions,
+        out List<VariableChange> variableChanges,
+        out List<VariableCondition> variableConditions)
     {
         targetHubName = null;
         isOnce = false;
@@ -382,6 +398,8 @@ public static class DialogueParser
         relationshipConditions = new List<RelationshipCondition>();
         inventoryChanges = new List<InventoryChange>();
         inventoryConditions = new List<InventoryCondition>();
+        variableChanges = new List<VariableChange>();
+        variableConditions = new List<VariableCondition>();
 
         while (TryExtractLastTag(ref text, out string tagText))
         {
@@ -427,9 +445,67 @@ public static class DialogueParser
                 continue;
             }
 
+            if (TryReadVariableChange(tagText, out VariableChange variableChange))
+            {
+                variableChanges.Add(variableChange);
+                continue;
+            }
+
+            if (TryReadVariableCondition(tagText, out VariableCondition variableCondition))
+            {
+                variableConditions.Add(variableCondition);
+                continue;
+            }
+
             text = $"{text} [{tagText}]".Trim();
             break;
         }
+    }
+
+    private static bool TryReadVariableChange(string tagText, out VariableChange variableChange)
+    {
+        variableChange = null;
+
+        if (!tagText.StartsWith("set ", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string changeText = tagText.Substring(4).Trim();
+        string[] parts = changeText.Split(new[] { ' ' }, 2, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[0]) || string.IsNullOrWhiteSpace(parts[1]))
+        {
+            return false;
+        }
+
+        variableChange = new VariableChange(parts[0], parts[1].Trim());
+        return true;
+    }
+
+    private static bool TryReadVariableCondition(string tagText, out VariableCondition variableCondition)
+    {
+        variableCondition = null;
+
+        if (!tagText.StartsWith("if ", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string conditionText = tagText.Substring(3).Trim();
+        string[] parts = conditionText.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 2)
+        {
+            variableCondition = new VariableCondition(parts[0], "==", parts[1]);
+            return true;
+        }
+
+        if (parts.Length == 3 && TryNormalizeComparisonOperator(parts[1], out string comparisonOperator))
+        {
+            variableCondition = new VariableCondition(parts[0], comparisonOperator, parts[2]);
+            return true;
+        }
+
+        return false;
     }
 
     private static bool TryReadInventoryCondition(string tagText, out InventoryCondition inventoryCondition)
@@ -650,7 +726,9 @@ public static class DialogueParser
             List<RelationshipChange> relationshipChanges = null,
             List<RelationshipCondition> relationshipConditions = null,
             List<InventoryChange> inventoryChanges = null,
-            List<InventoryCondition> inventoryConditions = null)
+            List<InventoryCondition> inventoryConditions = null,
+            List<VariableChange> variableChanges = null,
+            List<VariableCondition> variableConditions = null)
         {
             LineNumber = lineNumber;
             SpeakerName = speakerName;
@@ -662,6 +740,8 @@ public static class DialogueParser
             RelationshipConditions = relationshipConditions ?? new List<RelationshipCondition>();
             InventoryChanges = inventoryChanges ?? new List<InventoryChange>();
             InventoryConditions = inventoryConditions ?? new List<InventoryCondition>();
+            VariableChanges = variableChanges ?? new List<VariableChange>();
+            VariableConditions = variableConditions ?? new List<VariableCondition>();
         }
 
         public int LineNumber { get; }
@@ -674,5 +754,7 @@ public static class DialogueParser
         public List<RelationshipCondition> RelationshipConditions { get; }
         public List<InventoryChange> InventoryChanges { get; }
         public List<InventoryCondition> InventoryConditions { get; }
+        public List<VariableChange> VariableChanges { get; }
+        public List<VariableCondition> VariableConditions { get; }
     }
 }

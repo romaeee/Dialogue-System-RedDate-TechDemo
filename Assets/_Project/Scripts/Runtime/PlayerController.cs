@@ -10,6 +10,7 @@ public sealed class PlayerController : MonoBehaviour, ISavable<PlayerSaveData>
 
     private readonly Dictionary<string, int> relationships = new Dictionary<string, int>();
     private readonly HashSet<string> inventoryItems = new HashSet<string>();
+    private readonly Dictionary<string, string> variables = new Dictionary<string, string>();
 
     public void ApplyRelationshipChange(RelationshipChange change)
     {
@@ -81,10 +82,30 @@ public sealed class PlayerController : MonoBehaviour, ISavable<PlayerSaveData>
 
     public IReadOnlyCollection<string> InventoryItems => inventoryItems;
 
+    public void SetVariable(VariableChange change)
+    {
+        if (change == null || string.IsNullOrWhiteSpace(change.VariableName))
+        {
+            return;
+        }
+
+        variables[change.VariableName] = change.Value;
+        if (verboseLogging)
+        {
+            Debug.Log($"[Variable] {change.VariableName} = {change.Value}");
+        }
+    }
+
+    public bool TryGetVariableValue(string variableName, out string value)
+    {
+        return variables.TryGetValue(variableName, out value);
+    }
+
     public void ResetState()
     {
         relationships.Clear();
         inventoryItems.Clear();
+        variables.Clear();
     }
 
     public PlayerSaveData CaptureState()
@@ -110,6 +131,15 @@ public sealed class PlayerController : MonoBehaviour, ISavable<PlayerSaveData>
             });
         }
 
+        foreach (KeyValuePair<string, string> variable in variables)
+        {
+            state.variables.Add(new VariableValueSaveData
+            {
+                variableName = variable.Key,
+                value = variable.Value
+            });
+        }
+
         return state;
     }
 
@@ -131,17 +161,29 @@ public sealed class PlayerController : MonoBehaviour, ISavable<PlayerSaveData>
             }
         }
 
-        if (state.inventoryItems == null)
+        if (state.inventoryItems != null)
+        {
+            for (int i = 0; i < state.inventoryItems.Count; i++)
+            {
+                InventoryItemSaveData item = state.inventoryItems[i];
+                if (!string.IsNullOrWhiteSpace(item.itemName))
+                {
+                    inventoryItems.Add(item.itemName);
+                }
+            }
+        }
+
+        if (state.variables == null)
         {
             return;
         }
 
-        for (int i = 0; i < state.inventoryItems.Count; i++)
+        for (int i = 0; i < state.variables.Count; i++)
         {
-            InventoryItemSaveData item = state.inventoryItems[i];
-            if (!string.IsNullOrWhiteSpace(item.itemName))
+            VariableValueSaveData variable = state.variables[i];
+            if (!string.IsNullOrWhiteSpace(variable.variableName))
             {
-                inventoryItems.Add(item.itemName);
+                variables[variable.variableName] = variable.value;
             }
         }
     }

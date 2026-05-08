@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using TMPro;
 using UnityEngine;
@@ -403,7 +404,8 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
             if (element is DialogueLine line)
             {
                 if (!AreInventoryConditionsMet(line.InventoryConditions) ||
-                    !AreRelationshipConditionsMet(line.RelationshipConditions))
+                    !AreRelationshipConditionsMet(line.RelationshipConditions) ||
+                    !AreVariableConditionsMet(line.VariableConditions))
                 {
                     retainedLineBeforeChoices = null;
                     continue;
@@ -413,6 +415,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
                 AddLogEntry(line);
                 ApplyRelationshipChanges(line.RelationshipChanges);
                 ApplyInventoryChanges(line.InventoryChanges);
+                ApplyVariableChanges(line.VariableChanges);
                 bool hideAfterAdvance = !(i + 1 < node.Elements.Count && node.Elements[i + 1] is DialogueHub);
                 yield return ShowDialogueLine(line, hideAfterAdvance);
                 retainedLineBeforeChoices = hideAfterAdvance ? null : line;
@@ -487,6 +490,7 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
 
         ApplyRelationshipChanges(selectedChoice.RelationshipChanges);
         ApplyInventoryChanges(selectedChoice.InventoryChanges);
+        ApplyVariableChanges(selectedChoice.VariableChanges);
         dialogueUI.HideChoices();
         retainedLineBeforeChoices = null;
         currentHubName = null;
@@ -722,6 +726,11 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
                 continue;
             }
 
+            if (!AreVariableConditionsMet(choice.VariableConditions))
+            {
+                continue;
+            }
+
             availableChoices.Add(choice);
         }
 
@@ -799,6 +808,94 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         }
 
         return true;
+    }
+
+    private void ApplyVariableChanges(IReadOnlyList<VariableChange> variableChanges)
+    {
+        if (variableChanges == null || variableChanges.Count == 0)
+        {
+            return;
+        }
+
+        if (playerController == null)
+        {
+            Debug.LogWarning("DialogueRunner has variable changes, but PlayerController is not assigned.");
+            return;
+        }
+
+        for (int i = 0; i < variableChanges.Count; i++)
+        {
+            playerController.SetVariable(variableChanges[i]);
+        }
+    }
+
+    private bool AreVariableConditionsMet(IReadOnlyList<VariableCondition> variableConditions)
+    {
+        if (variableConditions == null || variableConditions.Count == 0)
+        {
+            return true;
+        }
+
+        if (playerController == null)
+        {
+            Debug.LogWarning("DialogueRunner has variable conditions, but PlayerController is not assigned.");
+            return false;
+        }
+
+        for (int i = 0; i < variableConditions.Count; i++)
+        {
+            VariableCondition condition = variableConditions[i];
+            playerController.TryGetVariableValue(condition.VariableName, out string currentValue);
+            if (!CompareVariableValue(currentValue, condition.ComparisonOperator, condition.Value))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool CompareVariableValue(string currentValue, string comparisonOperator, string targetValue)
+    {
+        currentValue = currentValue ?? string.Empty;
+        targetValue = targetValue ?? string.Empty;
+
+        if (TryParseNumber(currentValue, out float currentNumber) &&
+            TryParseNumber(targetValue, out float targetNumber))
+        {
+            switch (comparisonOperator)
+            {
+                case ">":
+                    return currentNumber > targetNumber;
+                case "<":
+                    return currentNumber < targetNumber;
+                case ">=":
+                    return currentNumber >= targetNumber;
+                case "<=":
+                    return currentNumber <= targetNumber;
+                case "==":
+                    return Mathf.Approximately(currentNumber, targetNumber);
+                case "!=":
+                    return !Mathf.Approximately(currentNumber, targetNumber);
+                default:
+                    return false;
+            }
+        }
+
+        switch (comparisonOperator)
+        {
+            case "==":
+                return string.Equals(currentValue, targetValue, System.StringComparison.OrdinalIgnoreCase);
+            case "!=":
+                return !string.Equals(currentValue, targetValue, System.StringComparison.OrdinalIgnoreCase);
+            default:
+                return false;
+        }
+    }
+
+    private static bool TryParseNumber(string value, out float number)
+    {
+        return float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out number);
     }
 
     private void BuildGraphLookup(DialogueGraph graph)

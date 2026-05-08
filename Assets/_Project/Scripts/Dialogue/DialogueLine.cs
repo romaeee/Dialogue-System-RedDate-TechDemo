@@ -6,6 +6,8 @@ public sealed class DialogueLine : DialogueElement
     private readonly List<RelationshipCondition> relationshipConditions;
     private readonly List<InventoryChange> inventoryChanges;
     private readonly List<InventoryCondition> inventoryConditions;
+    private readonly List<VariableChange> variableChanges;
+    private readonly List<VariableCondition> variableConditions;
 
     public DialogueLine(
         int lineNumber,
@@ -14,7 +16,9 @@ public sealed class DialogueLine : DialogueElement
         List<RelationshipChange> relationshipChanges = null,
         List<RelationshipCondition> relationshipConditions = null,
         List<InventoryChange> inventoryChanges = null,
-        List<InventoryCondition> inventoryConditions = null) : base(lineNumber)
+        List<InventoryCondition> inventoryConditions = null,
+        List<VariableChange> variableChanges = null,
+        List<VariableCondition> variableConditions = null) : base(lineNumber)
     {
         SpeakerName = speakerName;
         Text = text;
@@ -22,6 +26,8 @@ public sealed class DialogueLine : DialogueElement
         this.relationshipConditions = relationshipConditions ?? new List<RelationshipCondition>();
         this.inventoryChanges = inventoryChanges ?? new List<InventoryChange>();
         this.inventoryConditions = inventoryConditions ?? new List<InventoryCondition>();
+        this.variableChanges = variableChanges ?? new List<VariableChange>();
+        this.variableConditions = variableConditions ?? new List<VariableCondition>();
     }
 
     public string SpeakerName { get; }
@@ -30,4 +36,6 @@ public sealed class DialogueLine : DialogueElement
     public IReadOnlyList<RelationshipCondition> RelationshipConditions => relationshipConditions;
     public IReadOnlyList<InventoryChange> InventoryChanges => inventoryChanges;
     public IReadOnlyList<InventoryCondition> InventoryConditions => inventoryConditions;
+    public IReadOnlyList<VariableChange> VariableChanges => variableChanges;
+    public IReadOnlyList<VariableCondition> VariableConditions => variableConditions;
 }

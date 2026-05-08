@@ -4,7 +4,7 @@ showCharacter: Anna
 Narrator: Round one begins. Two minutes with Anna, cover name Velvet, actual job unknown.
 Anna: You're late.
 Player: The invitation said mysterious rooftop bar, not abandoned safehouse.
-Anna: Good. You can read a room.
+Anna: Good. You can read a room. [set metAnna true]
 
 Hub AnnaIntro
 Player: Apologize smoothly. (Sorry. I got held up by surveillance.) [once]
@@ -15,7 +15,7 @@ Player: Apologize smoothly. (Sorry. I got held up by surveillance.) [once]
 		Anna: Planning is easy. Trusting someone at the table is harder. [relationship trust Anna +1]
 	Player: Ask about the mission. (Who are we listening for?)
 		Anna: The woman at the next table. May. She flirts like a weapon.
-	Back to first questions. [back Hub Anna Intro]
+	Back to first questions. [back Hub AnnaIntro]
 Player: Tease her. (I thought spies liked dramatic entrances.)
 	Anna: We like punctual ones more.
 Player: Leave the date. (*Leave.*)
@@ -30,20 +30,20 @@ showCharacter: May
 
 Narrator: Round two. May arrives with a smile bright enough to hide a lockpick.
 May: So you're Anna's mysterious date.
-Player: I prefer charming liability.
+Player: I prefer charming liability. [if metAnna true]
 May: Honest. Dangerous. I like one of those.
 
 Hub MayDate
 Player: Show confidence. (I can handle danger.)
 	May: Everyone says that before the laser grid.
-	Hub MayDateSub1
+	Hub MayEquipment
 	Player: I brought equipment. (Anna gave me this microphone.) [if got microphone]
 		May: Then she trusts you. Interesting. Let us test that. [relationship trust May +1]
 	Player: Admit the truth. (I have no equipment.) [if no microphone]
 		May: Then your survival plan is mostly cheekbones and luck.
 Player: Ask about Anna. (Do you trust Anna?)
 	May: Trust? No. Respect? Absolutely.
-	Hub MayDateSub1
+	Hub MayAnnaTrust
 	Player: She trusted me a little. (She gave me a chance.) [if trust Anna > 0]
 		May: Then don't waste it. Anna rarely opens a door twice.
 Player: Try a bold flirt. (Is this still a date?)
