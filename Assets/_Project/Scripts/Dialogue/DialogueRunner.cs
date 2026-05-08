@@ -16,6 +16,8 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
     [SerializeField] private PlayerController playerController;
     [SerializeField] private CharacterDatabase characterDatabase;
     [SerializeField] private BackgroundDatabase backgroundDatabase;
+    [SerializeField] private ItemDatabase itemDatabase;
+    [SerializeField] private RelationshipTypeDatabase relationshipTypeDatabase;
     [SerializeField] private string saveFileName = "save.json";
     [SerializeField] private Button saveButton;
     [SerializeField] private Button loadButton;
@@ -210,6 +212,19 @@ public sealed class DialogueRunner : MonoBehaviour, ISavable<DialogueSaveData>
         }
 
         playRoutine = StartCoroutine(PlayRestoredPosition(node, startIndex, state.activeHubName));
+    }
+
+    [ContextMenu("Validate Dialogue")]
+    public void ValidateDialogue()
+    {
+        DialogueValidationReport report = DialogueValidator.Validate(
+            dialogueText,
+            characterDatabase,
+            backgroundDatabase,
+            itemDatabase,
+            relationshipTypeDatabase);
+
+        report.LogToConsole(dialogueText != null ? dialogueText.name : null);
     }
 
     private async System.Threading.Tasks.Task SaveAsync()

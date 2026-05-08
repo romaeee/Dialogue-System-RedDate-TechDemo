@@ -2248,6 +2248,8 @@ MonoBehaviour:
   playerController: {fileID: 1919346282}
   characterDatabase: {fileID: 11400000, guid: 847214430ce264f66a9335f4fe221eda, type: 2}
   backgroundDatabase: {fileID: 11400000, guid: a0fb81b1943ca4e62902d7af72fe8ae7, type: 2}
+  itemDatabase: {fileID: 11400000, guid: 7b089ffc8240483fb439ed293218be42, type: 2}
+  relationshipTypeDatabase: {fileID: 11400000, guid: f495612773e244d4afb03b27f9c687e9, type: 2}
   saveFileName: save.json
   saveButton: {fileID: 1288730309}
   loadButton: {fileID: 1180307093}
